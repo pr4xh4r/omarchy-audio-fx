@@ -67,6 +67,36 @@ if ! echo "$PATH" | grep -q "$BIN_DIR"; then
     echo "    export PATH=\"\$HOME/.local/bin:\$PATH\""
 fi
 
+# ── Install audio-mode keybinding script ─────────────────────────────────────
+step "Installing Super+M keybinding script..."
+cp "${SCRIPT_DIR}/bin/audio-mode" "${BIN_DIR}/audio-mode"
+chmod +x "${BIN_DIR}/audio-mode"
+info "audio-mode script installed → ${BIN_DIR}/audio-mode"
+
+# Register the keybinding for supported WMs
+if [[ -f "${HOME}/.config/hypr/bindings.lua" ]]; then
+    # Omarchy / Hyprland — check if binding already exists
+    if grep -q "audio-mode" "${HOME}/.config/hypr/bindings.lua"; then
+        info "Super+M keybinding already present in bindings.lua ✓"
+    else
+        echo "" >> "${HOME}/.config/hypr/bindings.lua"
+        echo "-- Audio Mode: cycle all presets (Super+M)" >> "${HOME}/.config/hypr/bindings.lua"
+        echo 'o.bind("SUPER + M", "Audio Mode", "audio-mode")' >> "${HOME}/.config/hypr/bindings.lua"
+        info "Added Super+M binding to ~/.config/hypr/bindings.lua"
+        warn "Reload Hyprland for the keybinding to take effect: Super+Shift+R"
+    fi
+elif command -v hyprctl &>/dev/null; then
+    # Raw Hyprland (no Omarchy)
+    hyprctl keyword bind "SUPER, M, exec, audio-mode" 2>/dev/null && \
+        info "Super+M bound via hyprctl (temporary — add to hyprland.conf to persist)" || \
+        warn "Could not auto-bind. Add manually to hyprland.conf:"
+    echo "    bind = SUPER, M, exec, audio-mode"
+else
+    warn "Could not detect Hyprland. Add this keybinding manually to your WM config:"
+    echo "    Key:     Super + M"
+    echo "    Command: audio-mode"
+fi
+
 # ── Config Dir ───────────────────────────────────────────────────────────────
 mkdir -p "$CONFIG_DIR"
 
@@ -84,7 +114,11 @@ fi
 echo ""
 echo -e " ${BOLD}🎉 Installation complete!${RESET}"
 echo ""
-echo -e " ${BOLD}Quick start:${RESET}"
+echo -e " ${BOLD}Keyboard shortcut:${RESET}"
+echo -e "   ${CYAN}Super + M${RESET}  →  cycle through all audio modes"
+echo -e "   ${DIM}Off → Marshall → Dolby Atmos → Harman → Sony Clear → ...${RESET}"
+echo ""
+echo -e " ${BOLD}CLI quick start:${RESET}"
 echo -e "   audiofx list              # see all modes"
 echo -e "   audiofx set Marshall      # apply Marshall sound"
 echo -e "   audiofx set Dolby-Atmos   # apply Dolby Atmos"
@@ -93,3 +127,4 @@ echo -e "   audiofx auto              # auto-detect your device"
 echo ""
 echo -e " ${CYAN}Or open EasyEffects and load any preset manually.${RESET}"
 echo ""
+
