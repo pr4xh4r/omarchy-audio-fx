@@ -92,6 +92,39 @@ for f in "${SCRIPT_DIR}"/presets/**/*.json; do
 done
 info "${COUNT} presets installed → ${PRESETS_DIR}"
 
+# ── Set up EasyEffects as a persistent background service ─────────────────────
+step "Setting up EasyEffects as a background service..."
+SYSTEMD_USER_DIR="${HOME}/.config/systemd/user"
+mkdir -p "$SYSTEMD_USER_DIR"
+
+# Use distro's unit file if it exists, else install ours
+if ! systemctl --user cat easyeffects &>/dev/null; then
+    cp "${SCRIPT_DIR}/systemd/easyeffects.service" "${SYSTEMD_USER_DIR}/easyeffects.service"
+    systemctl --user daemon-reload
+    info "EasyEffects systemd unit installed"
+fi
+
+if systemctl --user enable --now easyeffects 2>/dev/null; then
+    info "EasyEffects service enabled — starts automatically on login"
+    info "Audio effects persist even after closing the terminal"
+else
+    warn "Could not enable systemd service — using fallback startup"
+    # Fallback: add to autostart for DEs that support XDG autostart
+    AUTOSTART_DIR="${HOME}/.config/autostart"
+    mkdir -p "$AUTOSTART_DIR"
+    cat > "${AUTOSTART_DIR}/easyeffects-service.desktop" <<EOF
+[Desktop Entry]
+Name=EasyEffects Service
+Comment=Audio effects service
+Exec=easyeffects --service-mode
+Type=Application
+X-GNOME-Autostart-enabled=true
+Hidden=false
+NoDisplay=false
+EOF
+    info "Added EasyEffects to XDG autostart (${AUTOSTART_DIR})"
+fi
+
 # ── Install CLI tools ─────────────────────────────────────────────────────────
 step "Installing CLI tools..."
 mkdir -p "$BIN_DIR"

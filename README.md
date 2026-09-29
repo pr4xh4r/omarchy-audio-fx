@@ -75,7 +75,8 @@ The system detects your device and silently adds the right layer:
 | Device | Auto-applied |
 |--------|-------------|
 | Headphones (wired) | Crossfeed — removes the in-head feeling that wired headphones have |
-| Earbuds / Bluetooth | Bass virtualization — makes tiny drivers sound much bigger |
+| Earbuds / Bluetooth earbuds | Bass virtualization — makes tiny drivers sound much bigger |
+| Bluetooth speaker | SBC codec compensation — restores highs + warms up bass |
 | Laptop speakers | Bass virtualization + stereo widening |
 | Desktop speakers | Reference — no correction, just the signature |
 
@@ -84,6 +85,19 @@ You can check what it detected at any time:
 ```bash
 audiofx device
 ```
+
+---
+
+## Runs in the background — closes with nothing
+
+The installer sets up EasyEffects as a **systemd user service**. This means:
+
+- It starts automatically when you log in
+- It keeps running even after you close the terminal
+- Music plays through your effects all day without you doing anything
+- To actually stop it: `audiofx off` (bypass) or `systemctl --user stop easyeffects`
+
+You never need to keep a terminal open for your audio mode to work. Press `Super+M`, close the terminal, music still sounds like Marshall.
 
 ---
 

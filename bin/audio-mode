@@ -32,6 +32,24 @@ STATE_FILE="$HOME/.local/share/audio-mode-state"
 SMART_SCRIPT="$HOME/.local/bin/audiofx-smart"
 TOTAL_MODES=17   # 0..16
 
+# ── Ensure EasyEffects runs as a service (survives terminal close) ─────────────
+ensure_ee_service() {
+    if pgrep -x easyeffects >/dev/null 2>&1; then
+        return 0  # already running
+    fi
+
+    # Try systemd user service first (survives logout on some setups)
+    if systemctl --user start easyeffects 2>/dev/null; then
+        sleep 0.8
+        return 0
+    fi
+
+    # Fallback: launch detached from terminal using setsid + service-mode
+    setsid easyeffects --service-mode >/dev/null 2>&1 &
+    disown $!
+    sleep 1
+}
+
 MODE_PRESET=(
   ""                   #  0 — Off
   "Marshall"           #  1
@@ -105,10 +123,14 @@ echo "$next" > "$STATE_FILE"
 preset="${MODE_PRESET[$next]}"
 
 if (( next == 0 )); then
-  # Off — bypass all effects
-  easyeffects --bypass 1 &>/dev/null &
+  # Off — bypass all effects (EasyEffects stays running as service)
+  ensure_ee_service
+  easyeffects --bypass 1 &>/dev/null
   device_label="off"
 else
+  # Ensure EasyEffects is running as a detached service
+  ensure_ee_service
+
   # Smart apply: detect device + merge compensation silently
   applied_preset="$preset"
   device_label=""
@@ -119,9 +141,9 @@ else
     device_label=$(echo "$result" | cut -d'|' -f3)
   fi
 
-  easyeffects --bypass 0 &>/dev/null &
+  easyeffects --bypass 2 &>/dev/null
   sleep 0.3
-  easyeffects --load-preset "$applied_preset" &>/dev/null &
+  easyeffects --load-preset "$applied_preset" &>/dev/null
 
   # Sync audiofx state file
   AUDIOFX_STATE="$HOME/.config/audiofx/state"

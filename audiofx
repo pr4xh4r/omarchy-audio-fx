@@ -70,13 +70,27 @@ preset_exists() { [[ -f "${PRESET_DIR}/${1}.json" ]]; }
 
 ee_running() { pgrep -x easyeffects >/dev/null 2>&1; }
 
+ee_ensure_service() {
+    ee_running && return 0
+
+    # Try systemd user service first
+    if systemctl --user start easyeffects 2>/dev/null; then
+        sleep 0.8
+        return 0
+    fi
+
+    # Fallback: detach from terminal completely (survives terminal close)
+    setsid easyeffects --service-mode >/dev/null 2>&1 &
+    disown $!
+    sleep 1
+}
+
 ee_apply() {
     local preset="$1"
-    if ! ee_running; then
-        easyeffects --gapplication-service &>/dev/null &
-        sleep 1
-    fi
-    easyeffects --bypass 0 && easyeffects --load-preset "$preset"
+    ee_ensure_service
+    easyeffects --bypass 2 &>/dev/null
+    sleep 0.2
+    easyeffects --load-preset "$preset" &>/dev/null
 }
 
 save_state() {
