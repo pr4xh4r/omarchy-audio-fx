@@ -23,24 +23,23 @@ PRESETS_DIR = f"{HOME}/.local/share/easyeffects/output"
 
 # Map detected device type → device preset name
 DEVICE_PRESET = {
-    "headphones":       "Headphones",
-    "iem":              "IEM",
-    "earbuds":          "Earbuds",
-    "laptop-speakers":  "Laptop-Speakers",
-    "desktop-speakers": "Desktop-Speakers",
-    "bluetooth":        "Earbuds",   # generic BT fallback
+    "headphones":         "Headphones",
+    "iem":                "IEM",
+    "earbuds":            "Earbuds",
+    "laptop-speakers":    "Laptop-Speakers",
+    "desktop-speakers":   "Desktop-Speakers",
+    "bluetooth-speaker":  "Bluetooth-Speaker",   # portable/external BT speaker
 }
 
 # Which plugins from the device preset to prepend to the signature chain.
-# These are the compensation/correction plugins — not EQ, not maximizer.
 # The signature provides EQ character, the device provides the correction layer.
 DEVICE_PREPEND_PLUGINS = {
-    "headphones":       ["crossfeed#0"],                      # removes in-head feeling
-    "iem":              [],                                    # IEM EQ handled in sig
-    "earbuds":          ["bass_enhancer#0"],                  # psychoacoustic bass
-    "laptop-speakers":  ["bass_enhancer#0", "stereo_tools#0"], # bass + widen
-    "desktop-speakers": [],                                    # reference, no correction
-    "bluetooth":        ["bass_enhancer#0"],                  # compensate BT compression
+    "headphones":         ["crossfeed#0"],                       # removes in-head feeling
+    "iem":                [],                                     # IEM EQ handled in sig
+    "earbuds":            ["bass_enhancer#0"],                   # psychoacoustic bass
+    "laptop-speakers":    ["bass_enhancer#0", "stereo_tools#0"], # bass + widen
+    "desktop-speakers":   [],                                     # reference, no correction
+    "bluetooth-speaker":  ["equalizer#0", "bass_enhancer#0"],   # SBC treble restore + bass
 }
 
 
@@ -87,7 +86,7 @@ def detect_device():
         # ── Product name FIRST (more reliable than BT class code) ────────────
         # Many BT speakers misreport their class in firmware (e.g. Stone 1500
         # reports minor=0x01/Headset but is clearly a speaker).
-        # Speaker brand/model keywords
+        # Speaker brand/model keywords → bluetooth-speaker (not desktop-speakers)
         if re.search(
             r"\bspeaker\b|soundbar|sound.bar|boombox|boom.box|stone\b|flip\b"
             r"|charge\b|pulse\b|xtreme\b|wonderboom|roam\b|revolve\b"
@@ -98,7 +97,7 @@ def detect_device():
             r"|\bboat\b|aavante|partypal|stone\s*\d+|blaster",
             blob
         ):
-            return "desktop-speakers"
+            return "bluetooth-speaker"
 
         # Earbud / TWS keywords
         if re.search(
@@ -255,17 +254,18 @@ def merge_preset(signature_name, device_type):
 
 def device_label(device_type):
     labels = {
-        "headphones":       "Headphones (crossfeed on)",
-        "iem":              "IEM (resonance-corrected)",
-        "earbuds":          "Earbuds (bass-virtualized)",
-        "laptop-speakers":  "Laptop Speakers (widened + bass-boosted)",
-        "desktop-speakers": "Desktop Speakers (reference)",
+        "headphones":        "Headphones (crossfeed on)",
+        "iem":               "IEM (resonance-corrected)",
+        "earbuds":           "Earbuds (bass-virtualized)",
+        "laptop-speakers":   "Laptop Speakers (widened + bass-boosted)",
+        "desktop-speakers":  "Desktop Speakers (reference)",
+        "bluetooth-speaker": "Bluetooth Speaker (SBC-compensated)",
     }
     return labels.get(device_type, device_type)
 
 
 OVERRIDE_FILE = f"{HOME}/.config/audiofx/device-override"
-VALID_TYPES   = ["headphones", "iem", "earbuds", "laptop-speakers", "desktop-speakers"]
+VALID_TYPES   = ["headphones", "iem", "earbuds", "laptop-speakers", "desktop-speakers", "bluetooth-speaker"]
 
 
 def get_override():
