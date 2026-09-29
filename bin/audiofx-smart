@@ -54,38 +54,121 @@ def run(cmd):
 def detect_device():
     """
     Figures out what audio device is active using PipeWire/pactl.
-    Returns one of: headphones, iem, earbuds, laptop-speakers,
-                    desktop-speakers, bluetooth
+    Only looks at the ACTIVE sink section — avoids false matches
+    from port labels in other sinks.
+    Returns one of: headphones, iem, earbuds, laptop-speakers, desktop-speakers
     """
     sink_name = run(["pactl", "get-default-sink"]).strip()
 
-    # Pull full sink list and card info for pattern matching
-    sink_info   = run(["pactl", "list", "sinks"])
-    card_info   = run(["pactl", "list", "cards"])
-    cards_short = run(["pactl", "list", "short", "sinks"])
+    # ── Isolate ONLY the active sink's section ───────────────────────────────
+    all_sinks = run(["pactl", "list", "sinks"])
+    active_section = ""
+    for block in all_sinks.split("\n\n"):
+        if sink_name in block:
+            active_section = block
+            break
 
-    # Combine everything into one searchable blob
-    blob = (sink_name + " " + sink_info + " " + card_info).lower()
+    # Also grab the matching card block
+    all_cards = run(["pactl", "list", "cards"])
+    active_card = ""
+    card_id = sink_name.replace("bluez_output.", "bluez_card.").rsplit(".", 1)[0]
+    card_id = card_id.replace("alsa_output.", "alsa_card.")
+    for block in all_cards.split("\n\n"):
+        if card_id in block or sink_name.split(".")[0] in block:
+            active_card = block
+            break
 
-    # ── Bluetooth first ─────────────────────────────────────────────────────
+    # Search blob = active sink + active card ONLY (not all sinks)
+    blob = (sink_name + " " + active_section + " " + active_card).lower()
+
+    # ── Bluetooth device ─────────────────────────────────────────────────────
     if re.search(r"bluez|bluetooth|a2dp|hsp|hfp", blob):
-        # Try to distinguish earbuds from headphones by product name
-        if re.search(r"earbud|earphone|bud|pod|tws|in.ear|bean|sport", blob):
+
+        # ── Product name FIRST (more reliable than BT class code) ────────────
+        # Many BT speakers misreport their class in firmware (e.g. Stone 1500
+        # reports minor=0x01/Headset but is clearly a speaker).
+        # Speaker brand/model keywords
+        if re.search(
+            r"\bspeaker\b|soundbar|sound.bar|boombox|boom.box|stone\b|flip\b"
+            r"|charge\b|pulse\b|xtreme\b|wonderboom|roam\b|revolve\b"
+            r"|portable.*speaker|home.*audio|jbl\s*(go|clip|bar)|ue\s*(boom|roll)"
+            r"|anker\s*sound|tribit|marshall\s*(acton|stanmore|woburn|emberton|tufton)"
+            r"|bose\s*(soundlink|home|smart\s*speaker)|sonos|harman\s*kardon"
+            r"|ultimate\s*ears|creative\s*(pebble|t\d)|edifier|klipsch",
+            blob
+        ):
+            return "desktop-speakers"
+
+        # Earbud / TWS keywords
+        if re.search(
+            r"earbud|earphone|tws|in.ear|bean|sport|liberty|freebuds|free.buds"
+            r"|galaxy.buds|echo.buds|pixel.buds|\bdots\b|nothing.*ear|oppo.*enco"
+            r"|jabra.*elite|soundcore.*life|anker.*soundcore.*p[0-9]",
+            blob
+        ):
             return "earbuds"
-        # Known BT headphone keywords
-        if re.search(r"headphone|headset|over.ear|on.ear|wh-|qc-|hd-|studio|live", blob):
+
+        # Headphone keywords
+        if re.search(
+            r"\bheadphone\b|over.ear|on.ear|wh-\d|qc\s*\d+|hd\s*\d|studio.*wireless"
+            r"|live.*\d|tune\s*\d|ath-m|dt\s*\d{3}|mdr-|momentum|anc.*head|bose.*qc"
+            r"|sony.*wh|jbl.*live|jabra.*evolve",
+            blob
+        ):
             return "headphones"
-        # Default for unknown BT = earbuds (conservative — earbuds need more correction)
-        return "earbuds"
+
+        # ── BT class code as fallback (when name gives no clues) ─────────────
+        # BT class: bits [12:8] = major, bits [7:2] = minor (Major 0x04 = Audio)
+        # Minor: 0x01=Headset, 0x05=Loudspeaker, 0x06=Headphones, 0x07=Portable
+        bt_class_match = re.search(
+            r"api\.bluez5\.class\s*=\s*\"(0x[0-9a-fA-F]+)\"",
+            active_section + active_card
+        )
+        if bt_class_match:
+            bt_class = int(bt_class_match.group(1), 16)
+            minor = (bt_class >> 2) & 0x3F
+            major = (bt_class >> 8) & 0x1F
+            if major == 0x04:
+                if minor in (0x05, 0x07, 0x08):   # Loudspeaker, Portable, Car
+                    return "desktop-speakers"
+                elif minor in (0x06,):             # Headphones (not 0x01 — too misused)
+                    return "headphones"
+                elif minor == 0x03:
+                    return "earbuds"
+
+        # Earbud / TWS keywords
+        if re.search(
+            r"earbud|earphone|tws|in.ear|bean|sport|liberty|freebuds|free.buds"
+            r"|galaxy.buds|echo.buds|pixel.buds|dots\b",
+            blob
+        ):
+            return "earbuds"
+
+        # Headphone keywords
+        if re.search(
+            r"headphone|over.ear|on.ear|wh-\d|qc\d|hd\s*\d|studio.*wireless"
+            r"|live.*\d|tune\s*\d",
+            blob
+        ):
+            return "headphones"
+
+        # Last resort: form_factor field
+        ff = re.search(r"device\.form_factor\s*=\s*\"(\w+)\"", active_section + active_card)
+        if ff:
+            if ff.group(1).lower() in ("speaker", "tv", "portable"):
+                return "desktop-speakers"
+            if ff.group(1).lower() == "headphone":
+                return "headphones"
+
+        return "earbuds"  # safest BT fallback
 
     # ── Wired headphones / headset ──────────────────────────────────────────
     if re.search(r"headphone|headset", blob):
-        # Check for IEM brands / keywords
         if re.search(r"shure|etymotic|campfire|westone|64.audio|noble|iem|in.ear.monitor|custom.iem", blob):
             return "iem"
         return "headphones"
 
-    # ── HDMI / DisplayPort (external monitor audio) ─────────────────────────
+    # ── HDMI / DisplayPort ──────────────────────────────────────────────────
     if re.search(r"hdmi|displayport|\bdp\b|monitor.*audio|tv\b|receiver", blob):
         return "desktop-speakers"
 
