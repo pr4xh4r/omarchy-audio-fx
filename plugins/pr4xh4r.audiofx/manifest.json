@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "pr4xh4r.audiofx",
+  "name": "Audio FX",
+  "version": "1.0.0",
+  "author": "pr4xh4r",
+  "description": "Click to cycle 11 audio modes: Off → Marshall → Dolby Atmos → Harman → Sony → Bose → JBL → Bass Beast → Vocal Clarity → Lo-Fi → Crystal Air",
+  "kinds": [
+    "bar-indicator"
+  ],
+  "entryPoints": {
+    "barIndicator": "AudioFx.qml"
+  },
+  "barIndicator": {
+    "displayName": "Audio FX",
+    "description": "Click to cycle all audio presets. Right-click to turn off.",
+    "category": "Audio"
+  }
+}
