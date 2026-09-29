@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# audio-mode — cycle ALL EasyEffects presets via Super+M
+# audio-mode — cycle audio presets via Super+M
 # Part of: omarchy-audio-fx  |  https://github.com/pr4xh4r/omarchy-audio-fx
 #
-# Full cycle (22 states — press Super+M to advance):
+# Device is auto-detected on every press and compensation is merged silently.
+# The user only cycles through sound signatures and experience modes.
 #
-#  ─── 🎵 Sound Signatures ────────────────────────────────────────────
+# Full cycle (17 states):
+#
+#  ─── 🎵 Sound Signatures ─────────────────────────────────────────────
 #   0  Off              — No processing (bypass)
 #   1  Marshall         — Warm bass · Punchy mids · Guitar-amp feel
 #   2  Dolby-Atmos      — Wide · Immersive · Spatial cinema
@@ -19,25 +22,18 @@
 #  11  Crystal-Air      — Airy · Detailed · Open soundstage
 #  12  Night-Mode       — Soft · Compressed · Late-night listening
 #
-#  ─── 🎧 Device Profiles ─────────────────────────────────────────────
-#  13  Headphones       — Crossfeed enabled · Harman-corrected
-#  14  IEM              — Resonance fix · Treble smoothed
-#  15  Earbuds          — Psychoacoustic bass virtualization
-#  16  Laptop-Speakers  — Bass virtual · Stereo widened
-#  17  Desktop-Speakers — Reference balance · Room-compensated
-#
-#  ─── 🌍 Experience Modes ────────────────────────────────────────────
-#  18  Cinema           — Wide stage · Dialogue boost · Depth
-#  19  Gaming           — Positional cues · 2–8kHz · Fast transients
-#  20  Party            — Max bass · Hard limiter · Protected
-#  21  Focus            — Flat · Crossfeed · Non-fatiguing
+#  ─── 🌍 Experience Modes ─────────────────────────────────────────────
+#  13  Cinema           — Wide stage · Dialogue boost · Depth
+#  14  Gaming           — Positional cues · 2–8kHz · Fast transients
+#  15  Party            — Max bass · Hard limiter · Protected
+#  16  Focus            — Flat · Crossfeed · Non-fatiguing
 
 STATE_FILE="$HOME/.local/share/audio-mode-state"
-TOTAL_MODES=22  # 0..21
+SMART_SCRIPT="$HOME/.local/bin/audiofx-smart"
+TOTAL_MODES=17   # 0..16
 
-# ── Mode definitions ──────────────────────────────────────────────────────────
 MODE_PRESET=(
-  ""                   #  0 — Off (bypass)
+  ""                   #  0 — Off
   "Marshall"           #  1
   "Dolby-Atmos"        #  2
   "Harman"             #  3
@@ -50,15 +46,10 @@ MODE_PRESET=(
   "Lo-Fi"              # 10
   "Crystal-Air"        # 11
   "Night-Mode"         # 12
-  "Headphones"         # 13
-  "IEM"                # 14
-  "Earbuds"            # 15
-  "Laptop-Speakers"    # 16
-  "Desktop-Speakers"   # 17
-  "Cinema"             # 18
-  "Gaming"             # 19
-  "Party"              # 20
-  "Focus"              # 21
+  "Cinema"             # 13
+  "Gaming"             # 14
+  "Party"              # 15
+  "Focus"              # 16
 )
 
 MODE_TITLE=(
@@ -75,11 +66,6 @@ MODE_TITLE=(
   "📻  Lo-Fi"
   "💎  Crystal Air"
   "🌙  Night Mode"
-  "🎧  Headphones"
-  "🎵  IEM"
-  "🎶  Earbuds"
-  "💻  Laptop Speakers"
-  "🔊  Desktop Speakers"
   "🎬  Cinema"
   "🎮  Gaming"
   "🎉  Party"
@@ -100,31 +86,14 @@ MODE_BODY=(
   "Vintage · Tape warmth · Rolled highs"
   "Airy · Detailed · Open IEM soundstage"
   "Soft · Compressed dynamics · Late-night"
-  "Crossfeed ON · Harman curve · Over-ear"
-  "Resonance fix · Treble smoothed · In-ear"
-  "Bass virtualized · BT-compensated · Buds"
-  "Bass virtual · Stereo widened · Laptop"
-  "Reference balance · Room-compensated"
   "Wide stage · Dialogue boost · Cinematic depth"
   "Positional cues · 2–8kHz detail · Fast"
   "Max bass · Hard limiter · Protected speakers"
   "Flat · Crossfeed · Non-fatiguing · Work mode"
 )
 
-# ── Section labels for notification (shown as subtitle prefix) ────────────────
-MODE_SECTION=(
-  ""
-  "🎵 Signature"  "🎵 Signature"  "🎵 Signature"  "🎵 Signature"
-  "🎵 Signature"  "🎵 Signature"  "🎵 Signature"  "🎵 Signature"
-  "🎵 Signature"  "🎵 Signature"  "🎵 Signature"  "🎵 Signature"
-  "🎧 Device"     "🎧 Device"     "🎧 Device"     "🎧 Device"     "🎧 Device"
-  "🌍 Mode"       "🌍 Mode"       "🌍 Mode"       "🌍 Mode"
-)
-
 # ── Read & advance state ──────────────────────────────────────────────────────
 current=$(cat "$STATE_FILE" 2>/dev/null || echo "0")
-
-# Clamp: handle stale values from old 3-mode or 11-mode script versions
 if ! [[ "$current" =~ ^[0-9]+$ ]] || (( current >= TOTAL_MODES )); then
   current=0
 fi
@@ -132,33 +101,45 @@ fi
 next=$(( (current + 1) % TOTAL_MODES ))
 echo "$next" > "$STATE_FILE"
 
-# Sync with audiofx CLI state file
-AUDIOFX_STATE="$HOME/.config/audiofx/state"
-if [[ -d "$HOME/.config/audiofx" ]]; then
-  preset="${MODE_PRESET[$next]}"
+# ── Apply the mode ────────────────────────────────────────────────────────────
+preset="${MODE_PRESET[$next]}"
+
+if (( next == 0 )); then
+  # Off — bypass all effects
+  easyeffects --bypass 1 &>/dev/null &
+  device_label="off"
+else
+  # Smart apply: detect device + merge compensation silently
+  applied_preset="$preset"
+  device_label=""
+
+  if [[ -f "$SMART_SCRIPT" ]] && command -v python3 >/dev/null; then
+    result=$(python3 "$SMART_SCRIPT" merge "$preset" 2>/dev/null || echo "${preset}|unknown|unknown")
+    applied_preset=$(echo "$result" | cut -d'|' -f1)
+    device_label=$(echo "$result" | cut -d'|' -f3)
+  fi
+
+  easyeffects --bypass 0 &>/dev/null &
+  sleep 0.3
+  easyeffects --load-preset "$applied_preset" &>/dev/null &
+
+  # Sync audiofx state file
+  AUDIOFX_STATE="$HOME/.config/audiofx/state"
+  mkdir -p "$HOME/.config/audiofx"
   cat > "$AUDIOFX_STATE" <<EOF
 SIGNATURE=${preset}
-DEVICE=
+DEVICE=${device_label}
 MODE=
-APPLIED_PRESET=${preset:-off}
+APPLIED_PRESET=${applied_preset}
 TIMESTAMP=$(date -Iseconds)
 EOF
 fi
 
-# ── Apply the mode ────────────────────────────────────────────────────────────
-if (( next == 0 )); then
-  easyeffects --bypass 1 &>/dev/null &
-else
-  preset="${MODE_PRESET[$next]}"
-  easyeffects --bypass 0 &>/dev/null &
-  sleep 0.3
-  easyeffects --load-preset "$preset" &>/dev/null &
-fi
-
 # ── Notify ────────────────────────────────────────────────────────────────────
-section="${MODE_SECTION[$next]}"
 body="${MODE_BODY[$next]}"
-[[ -n "$section" ]] && body="${section}  ·  ${body}"
+# Append device info to notification body if we know it
+[[ -n "$device_label" && "$device_label" != "off" && "$device_label" != "unknown" ]] \
+  && body="${body}  •  ${device_label}"
 
 notify-send \
   --urgency=low \

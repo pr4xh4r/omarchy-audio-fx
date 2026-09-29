@@ -1,0 +1,215 @@
+#!/usr/bin/env python3
+"""
+audiofx-smart — Device detection + preset auto-merging for omarchy-audio-fx
+
+Detects the active audio output device via PipeWire/PulseAudio and
+silently merges the right device compensation into whatever preset
+the user picked — so the user never has to think about device profiles.
+
+Usage:
+  audiofx-smart detect              → print detected device type
+  audiofx-smart merge <preset>      → merge device comp + preset, print name|device
+  audiofx-smart info                → print full device info as JSON
+"""
+
+import json
+import os
+import re
+import subprocess
+import sys
+
+HOME = os.environ.get("HOME", "")
+PRESETS_DIR = f"{HOME}/.local/share/easyeffects/output"
+
+# Map detected device type → device preset name
+DEVICE_PRESET = {
+    "headphones":       "Headphones",
+    "iem":              "IEM",
+    "earbuds":          "Earbuds",
+    "laptop-speakers":  "Laptop-Speakers",
+    "desktop-speakers": "Desktop-Speakers",
+    "bluetooth":        "Earbuds",   # generic BT fallback
+}
+
+# Which plugins from the device preset to prepend to the signature chain.
+# These are the compensation/correction plugins — not EQ, not maximizer.
+# The signature provides EQ character, the device provides the correction layer.
+DEVICE_PREPEND_PLUGINS = {
+    "headphones":       ["crossfeed#0"],                      # removes in-head feeling
+    "iem":              [],                                    # IEM EQ handled in sig
+    "earbuds":          ["bass_enhancer#0"],                  # psychoacoustic bass
+    "laptop-speakers":  ["bass_enhancer#0", "stereo_tools#0"], # bass + widen
+    "desktop-speakers": [],                                    # reference, no correction
+    "bluetooth":        ["bass_enhancer#0"],                  # compensate BT compression
+}
+
+
+def run(cmd):
+    try:
+        return subprocess.check_output(cmd, text=True, stderr=subprocess.DEVNULL)
+    except Exception:
+        return ""
+
+
+def detect_device():
+    """
+    Figures out what audio device is active using PipeWire/pactl.
+    Returns one of: headphones, iem, earbuds, laptop-speakers,
+                    desktop-speakers, bluetooth
+    """
+    sink_name = run(["pactl", "get-default-sink"]).strip()
+
+    # Pull full sink list and card info for pattern matching
+    sink_info   = run(["pactl", "list", "sinks"])
+    card_info   = run(["pactl", "list", "cards"])
+    cards_short = run(["pactl", "list", "short", "sinks"])
+
+    # Combine everything into one searchable blob
+    blob = (sink_name + " " + sink_info + " " + card_info).lower()
+
+    # ── Bluetooth first ─────────────────────────────────────────────────────
+    if re.search(r"bluez|bluetooth|a2dp|hsp|hfp", blob):
+        # Try to distinguish earbuds from headphones by product name
+        if re.search(r"earbud|earphone|bud|pod|tws|in.ear|bean|sport", blob):
+            return "earbuds"
+        # Known BT headphone keywords
+        if re.search(r"headphone|headset|over.ear|on.ear|wh-|qc-|hd-|studio|live", blob):
+            return "headphones"
+        # Default for unknown BT = earbuds (conservative — earbuds need more correction)
+        return "earbuds"
+
+    # ── Wired headphones / headset ──────────────────────────────────────────
+    if re.search(r"headphone|headset", blob):
+        # Check for IEM brands / keywords
+        if re.search(r"shure|etymotic|campfire|westone|64.audio|noble|iem|in.ear.monitor|custom.iem", blob):
+            return "iem"
+        return "headphones"
+
+    # ── HDMI / DisplayPort (external monitor audio) ─────────────────────────
+    if re.search(r"hdmi|displayport|\bdp\b|monitor.*audio|tv\b|receiver", blob):
+        return "desktop-speakers"
+
+    # ── Internal / built-in (check if laptop or desktop) ───────────────────
+    has_battery = any(
+        os.path.exists(f"/sys/class/power_supply/{b}/status")
+        for b in ["BAT0", "BAT1", "BAT", "battery"]
+    )
+
+    if re.search(r"built.in|builtin|internal|analog.stereo|snd_hda|analog.*output", blob):
+        return "laptop-speakers" if has_battery else "desktop-speakers"
+
+    # ── Fallback: use battery presence to guess ─────────────────────────────
+    return "laptop-speakers" if has_battery else "desktop-speakers"
+
+
+def load_preset(name):
+    path = f"{PRESETS_DIR}/{name}.json"
+    if not os.path.exists(path):
+        return None
+    with open(path) as f:
+        return json.load(f)
+
+
+def merge_preset(signature_name, device_type):
+    """
+    Merges device compensation plugins with the user's chosen signature.
+
+    Strategy:
+      - Device provides pre-processing (crossfeed, bass_enhancer, stereo_tools)
+      - Signature provides EQ character + compressor + maximizer
+      - Device plugins go first in the chain, signature follows
+
+    Returns the name of the merged preset (written to PRESETS_DIR).
+    """
+    sig_data = load_preset(signature_name)
+    if not sig_data:
+        return signature_name, device_type  # fallback: use as-is
+
+    sig_out = sig_data["output"]
+    prepend = DEVICE_PREPEND_PLUGINS.get(device_type, [])
+
+    # No device compensation needed for this device type
+    if not prepend:
+        return signature_name, device_type
+
+    device_preset_name = DEVICE_PRESET.get(device_type)
+    dev_data = load_preset(device_preset_name)
+
+    if not dev_data:
+        return signature_name, device_type  # device preset missing, use sig as-is
+
+    dev_out = dev_data["output"]
+
+    # Build merged plugin order: device prepend → signature chain (dedup)
+    sig_plugins = sig_out.get("plugins_order", [])
+    merged_order = prepend + [p for p in sig_plugins if p not in prepend]
+
+    merged = {
+        "output": {
+            "blocklist": [],
+            "plugins_order": merged_order
+        }
+    }
+
+    # Pull device-specific plugin configs
+    for plugin in prepend:
+        if plugin in dev_out:
+            merged["output"][plugin] = dev_out[plugin]
+
+    # Pull signature plugin configs (signature EQ/compressor/maximizer)
+    for plugin in sig_plugins:
+        merged["output"][plugin] = sig_out[plugin]
+
+    # Write merged preset to a temp file in the EasyEffects dir
+    merged_name = f"_smart_{signature_name}"
+    merged_path = f"{PRESETS_DIR}/{merged_name}.json"
+    with open(merged_path, "w") as f:
+        json.dump(merged, f, indent=4)
+
+    return merged_name, device_type
+
+
+def device_label(device_type):
+    labels = {
+        "headphones":       "Headphones (crossfeed on)",
+        "iem":              "IEM (resonance-corrected)",
+        "earbuds":          "Earbuds (bass-virtualized)",
+        "laptop-speakers":  "Laptop Speakers (widened + bass-boosted)",
+        "desktop-speakers": "Desktop Speakers (reference)",
+        "bluetooth":        "Bluetooth (BT-compensated)",
+    }
+    return labels.get(device_type, device_type)
+
+
+if __name__ == "__main__":
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "detect"
+
+    if cmd == "detect":
+        device = detect_device()
+        print(device)
+
+    elif cmd == "merge":
+        if len(sys.argv) < 3:
+            print("Usage: audiofx-smart merge <preset-name>", file=sys.stderr)
+            sys.exit(1)
+        preset = sys.argv[2]
+        device = detect_device()
+        merged_name, dev = merge_preset(preset, device)
+        # Output: merged_preset_name|device_type|device_label
+        print(f"{merged_name}|{dev}|{device_label(dev)}")
+
+    elif cmd == "info":
+        device = detect_device()
+        sink = run(["pactl", "get-default-sink"]).strip()
+        info = {
+            "sink": sink,
+            "detected_device": device,
+            "label": device_label(device),
+            "compensation": DEVICE_PREPEND_PLUGINS.get(device, []),
+            "device_preset": DEVICE_PRESET.get(device, "None"),
+        }
+        print(json.dumps(info, indent=2))
+
+    else:
+        print(f"Unknown command: {cmd}", file=sys.stderr)
+        sys.exit(1)

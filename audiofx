@@ -1,114 +1,72 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  audiofx — Intelligent audio mode switcher for Linux (EasyEffects + PipeWire)
+#  audiofx — Smart audio mode switcher for Linux (EasyEffects + PipeWire)
 #  Part of: omarchy-audio-fx  |  https://github.com/pr4xh4r/omarchy-audio-fx
+#
+#  The user picks a sound signature or experience mode.
+#  The system auto-detects the active device and silently merges in
+#  the right compensation (crossfeed for headphones, bass for earbuds, etc.)
+#  No manual device selection needed.
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -euo pipefail
 
-# ── Config ────────────────────────────────────────────────────────────────────
 PRESET_DIR="${HOME}/.local/share/easyeffects/output"
 STATE_FILE="${HOME}/.config/audiofx/state"
 CONFIG_DIR="${HOME}/.config/audiofx"
-VERSION="1.0.0"
+SMART_SCRIPT="${HOME}/.local/bin/audiofx-smart"
+VERSION="2.0.0"
 
 # ── Colors ────────────────────────────────────────────────────────────────────
-BOLD="\033[1m"
-DIM="\033[2m"
-RED="\033[1;31m"
-GREEN="\033[1;32m"
-YELLOW="\033[1;33m"
-BLUE="\033[1;34m"
-CYAN="\033[1;36m"
-PURPLE="\033[1;35m"
+BOLD="\033[1m"; DIM="\033[2m"; RESET="\033[0m"
+RED="\033[1;31m"; GREEN="\033[1;32m"; YELLOW="\033[1;33m"
+BLUE="\033[1;34m"; CYAN="\033[1;36m"; PURPLE="\033[1;35m"
 ORANGE="\033[38;5;208m"
-RESET="\033[0m"
 
-# ── Sound Signature Metadata ───────────────────────────────────────────────────
-declare -A SIG_ICON SIG_DESC SIG_COLOR
+# ── Signatures ────────────────────────────────────────────────────────────────
+SIGNATURES=(
+  Marshall Dolby-Atmos Harman Sony-Clear Bose-Comfort
+  JBL-Loud Sennheiser-Detail Bass-Beast Vocal-Clarity
+  Lo-Fi Crystal-Air Night-Mode
+)
 
-SIG_ICON["Marshall"]="󰋋"
+declare -A SIG_DESC SIG_COLOR
 SIG_DESC["Marshall"]="Warm bass · Punchy mids · Guitar-amp feel"
-SIG_COLOR["Marshall"]="${ORANGE}"
-
-SIG_ICON["Dolby-Atmos"]="󱡬"
 SIG_DESC["Dolby-Atmos"]="Wide · Immersive · Spatial cinema sound"
-SIG_COLOR["Dolby-Atmos"]="${BLUE}"
-
-SIG_ICON["Harman"]="󰓃"
 SIG_DESC["Harman"]="Research-backed · Most humans prefer this"
-SIG_COLOR["Harman"]="${GREEN}"
-
-SIG_ICON["Sony-Clear"]="󰋋"
 SIG_DESC["Sony-Clear"]="Deep bass · Crystal vocals · ANC-inspired"
-SIG_COLOR["Sony-Clear"]="${CYAN}"
-
-SIG_ICON["Bose-Comfort"]="󰋋"
 SIG_DESC["Bose-Comfort"]="Balanced · Warm · Zero listening fatigue"
-SIG_COLOR["Bose-Comfort"]="${PURPLE}"
-
-SIG_ICON["JBL-Loud"]="󰓃"
 SIG_DESC["JBL-Loud"]="V-shaped · Energetic · Party-ready"
-SIG_COLOR["JBL-Loud"]="${RED}"
-
-SIG_ICON["Sennheiser-Detail"]="󰋋"
-SIG_DESC["Sennheiser-Detail"]="Analytical · Flat · Wide soundstage"
-SIG_COLOR["Sennheiser-Detail"]="${DIM}"
-
-SIG_ICON["Bass-Beast"]="󰓃"
-SIG_DESC["Bass-Beast"]="Sub-heavy · Club · Psychoacoustic bass"
-SIG_COLOR["Bass-Beast"]="${RED}"
-
-SIG_ICON["Vocal-Clarity"]="󰍬"
-SIG_DESC["Vocal-Clarity"]="Speech-forward · Podcast · Remove rumble"
-SIG_COLOR["Vocal-Clarity"]="${GREEN}"
-
-SIG_ICON["Lo-Fi"]="󰥔"
+SIG_DESC["Sennheiser-Detail"]="Analytical · Flat reference · Wide soundstage"
+SIG_DESC["Bass-Beast"]="Sub-heavy · Psychoacoustic bass · Club feel"
+SIG_DESC["Vocal-Clarity"]="Speech-forward · Podcast · Removes rumble"
 SIG_DESC["Lo-Fi"]="Vintage · Tape warmth · Rolled highs"
-SIG_COLOR["Lo-Fi"]="${YELLOW}"
+SIG_DESC["Crystal-Air"]="Airy · Detailed · Open IEM soundstage"
+SIG_DESC["Night-Mode"]="Soft · Compressed dynamics · Late-night"
 
-SIG_ICON["Crystal-Air"]="󰜟"
-SIG_DESC["Crystal-Air"]="Airy · Detailed · Open IEM-optimized"
-SIG_COLOR["Crystal-Air"]="${CYAN}"
+SIG_COLOR["Marshall"]="${ORANGE}"; SIG_COLOR["Dolby-Atmos"]="${BLUE}"
+SIG_COLOR["Harman"]="${GREEN}";    SIG_COLOR["Sony-Clear"]="${CYAN}"
+SIG_COLOR["Bose-Comfort"]="${PURPLE}"; SIG_COLOR["JBL-Loud"]="${RED}"
+SIG_COLOR["Sennheiser-Detail"]="${DIM}"; SIG_COLOR["Bass-Beast"]="${RED}"
+SIG_COLOR["Vocal-Clarity"]="${GREEN}";   SIG_COLOR["Lo-Fi"]="${YELLOW}"
+SIG_COLOR["Crystal-Air"]="${CYAN}";      SIG_COLOR["Night-Mode"]="${BLUE}"
 
-# ── Device Profile Metadata ───────────────────────────────────────────────────
-declare -A DEV_ICON DEV_DESC
+# ── Experience Modes ──────────────────────────────────────────────────────────
+MODES=(Cinema Gaming Party Focus)
 
-DEV_ICON["Headphones"]="󰋋"
-DEV_DESC["Headphones"]="Crossfeed enabled · Harman-corrected · Over-ear optimized"
-
-DEV_ICON["IEM"]="󰟆"
-DEV_DESC["IEM"]="Resonance fix · Treble smoothed · In-ear optimized"
-
-DEV_ICON["Earbuds"]="󰟆"
-DEV_DESC["Earbuds"]="Bass virtualized · BT-compensated · Tiny-driver optimized"
-
-DEV_ICON["Laptop-Speakers"]="󰓃"
-DEV_DESC["Laptop-Speakers"]="Bass virtualized · Stereo widened · Laptop-optimized"
-
-DEV_ICON["Desktop-Speakers"]="󰓃"
-DEV_DESC["Desktop-Speakers"]="Reference-balanced · Room-compensated · Speaker-optimized"
-
-# ── Mode Metadata ─────────────────────────────────────────────────────────────
-declare -A MODE_ICON MODE_DESC
-
-MODE_ICON["Cinema"]="󰎁"
+declare -A MODE_DESC
 MODE_DESC["Cinema"]="Wide stage · Dialogue boost · Cinematic depth"
-
-MODE_ICON["Gaming"]="󱎓"
-MODE_DESC["Gaming"]="Positional cues · Fast transients · 2–8kHz detail"
-
-MODE_ICON["Party"]="󰝚"
-MODE_DESC["Party"]="Maximum bass · Loud · Protected limiter"
-
-MODE_ICON["Focus"]="󰔡"
+MODE_DESC["Gaming"]="Positional cues · 2–8kHz detail · Fast transients"
+MODE_DESC["Party"]="Max bass · Hard limiter · Protected speakers"
 MODE_DESC["Focus"]="Flat · Crossfeed · Non-fatiguing · Work mode"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-die()  { echo -e "${RED}✗ Error:${RESET} $*" >&2; exit 1; }
+die()  { echo -e "${RED}✗${RESET} $*" >&2; exit 1; }
 info() { echo -e "${GREEN}✓${RESET} $*"; }
 warn() { echo -e "${YELLOW}⚠${RESET} $*"; }
 tip()  { echo -e "${DIM}  → $*${RESET}"; }
+
+preset_exists() { [[ -f "${PRESET_DIR}/${1}.json" ]]; }
 
 ee_running() { pgrep -x easyeffects >/dev/null 2>&1; }
 
@@ -136,78 +94,82 @@ load_state() {
     [[ -f "$STATE_FILE" ]] && source "$STATE_FILE" 2>/dev/null || true
 }
 
-detect_device() {
-    # Use PipeWire to detect currently active audio output
-    local sink_name
-    sink_name=$(pactl get-default-sink 2>/dev/null || echo "")
+# ── Smart Apply: auto-detect device + merge ───────────────────────────────────
+smart_apply() {
+    local preset="$1"
+    local context="${2:-}"   # "signature" or "mode" — just for state saving
 
-    local sink_info
-    sink_info=$(pactl list sinks 2>/dev/null | grep -A 20 "Name: ${sink_name}" || echo "")
+    preset_exists "$preset" || die "Preset '$preset' not found. Run: audiofx list"
 
-    local combined="${sink_name} ${sink_info}"
-    combined="${combined,,}"  # lowercase
+    local applied_preset="$preset"
+    local device="unknown"
+    local device_label="unknown"
 
-    if echo "$combined" | grep -qiE "headphone|headset|earphone|airpod|jabra|sony|bose|sennheiser|akg|beats|wh-|qc-|hd-"; then
-        echo "Headphones"
-    elif echo "$combined" | grep -qiE "earbud|tws|buds|pod|in.ear"; then
-        echo "Earbuds"
-    elif echo "$combined" | grep -qiE "hdmi|displayport|monitor|tv|receiver"; then
-        echo "Desktop-Speakers"
-    elif echo "$combined" | grep -qiE "bluetooth|bluez|a2dp"; then
-        echo "Earbuds"
-    elif echo "$combined" | grep -qiE "internal|builtin|built.in|laptop|speaker.*analog|analog.*speaker"; then
-        echo "Laptop-Speakers"
-    else
-        echo "Desktop-Speakers"
+    # Use the smart engine if available
+    if [[ -f "$SMART_SCRIPT" ]] && command -v python3 >/dev/null; then
+        local result
+        result=$(python3 "$SMART_SCRIPT" merge "$preset" 2>/dev/null || echo "${preset}|unknown|unknown")
+        applied_preset=$(echo "$result" | cut -d'|' -f1)
+        device=$(echo "$result" | cut -d'|' -f2)
+        device_label=$(echo "$result" | cut -d'|' -f3)
     fi
-}
 
-preset_exists() {
-    [[ -f "${PRESET_DIR}/${1}.json" ]]
+    ee_apply "$applied_preset"
+
+    # Save state
+    if [[ "$context" == "mode" ]]; then
+        save_state "" "$device" "$preset" "$applied_preset"
+    else
+        save_state "$preset" "$device" "" "$applied_preset"
+    fi
+
+    # Show what happened
+    echo -e "${GREEN}✓${RESET} ${BOLD}${preset}${RESET}"
+    tip "Device: ${CYAN}${device_label}${RESET}"
+    if [[ "$applied_preset" != "$preset" ]]; then
+        tip "Auto-merged device compensation into preset"
+    fi
 }
 
 # ── Commands ──────────────────────────────────────────────────────────────────
 
 cmd_list() {
     echo ""
-    echo -e " ${BOLD}omarchy-audio-fx${RESET} ${DIM}v${VERSION}${RESET}  —  Audio Mode Switcher"
+    echo -e " ${BOLD}omarchy-audio-fx${RESET} ${DIM}v${VERSION}${RESET}"
+    echo -e " ${DIM}Device compensation applied automatically — just pick your sound.${RESET}"
     echo ""
 
     echo -e " ${BOLD}🎵 Sound Signatures${RESET}"
-    for name in Marshall Dolby-Atmos Harman Sony-Clear Bose-Comfort JBL-Loud \
-                Sennheiser-Detail Bass-Beast Vocal-Clarity Lo-Fi Crystal-Air; do
+    for name in "${SIGNATURES[@]}"; do
         local color="${SIG_COLOR[$name]:-${RESET}}"
-        local icon="${SIG_ICON[$name]:-  }"
         local desc="${SIG_DESC[$name]:-}"
-        local exists=""
-        preset_exists "$name" && exists="${GREEN}✓${RESET}" || exists="${DIM}✗${RESET}"
-        printf "  %b %b%-20s${RESET}  ${DIM}%s${RESET}  %b\n" \
-               "$exists" "$color" "$name" "$desc" "${RESET}"
-    done
-
-    echo ""
-    echo -e " ${BOLD}🎧 Device Profiles${RESET}"
-    for name in Headphones IEM Earbuds Laptop-Speakers Desktop-Speakers; do
-        local icon="${DEV_ICON[$name]:-  }"
-        local desc="${DEV_DESC[$name]:-}"
-        local exists=""
-        preset_exists "$name" && exists="${GREEN}✓${RESET}" || exists="${DIM}✗${RESET}"
-        printf "  %b %-20s  ${DIM}%s${RESET}\n" "$exists" "$name" "$desc"
+        local exists="${DIM}✗${RESET}"; preset_exists "$name" && exists="${GREEN}✓${RESET}"
+        printf "  %b %b%-20s${RESET}  ${DIM}%s${RESET}\n" "$exists" "$color" "$name" "$desc"
     done
 
     echo ""
     echo -e " ${BOLD}🌍 Experience Modes${RESET}"
-    for name in Cinema Gaming Party Focus; do
-        local icon="${MODE_ICON[$name]:-  }"
+    for name in "${MODES[@]}"; do
         local desc="${MODE_DESC[$name]:-}"
-        local exists=""
-        preset_exists "$name" && exists="${GREEN}✓${RESET}" || exists="${DIM}✗${RESET}"
+        local exists="${DIM}✗${RESET}"; preset_exists "$name" && exists="${GREEN}✓${RESET}"
         printf "  %b %-20s  ${DIM}%s${RESET}\n" "$exists" "$name" "$desc"
     done
 
     echo ""
-    echo -e " ${DIM}Commands: audiofx set <name>  |  audiofx profile <device>${RESET}"
-    echo -e " ${DIM}          audiofx mode <mode>  |  audiofx auto  |  audiofx off${RESET}"
+
+    # Show detected device
+    if [[ -f "$SMART_SCRIPT" ]] && command -v python3 >/dev/null; then
+        local info
+        info=$(python3 "$SMART_SCRIPT" info 2>/dev/null || echo "{}")
+        local det_device det_label
+        det_device=$(echo "$info" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('detected_device','?'))" 2>/dev/null || echo "?")
+        det_label=$(echo "$info" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('label','?'))" 2>/dev/null || echo "?")
+        echo -e " ${BOLD}🎧 Detected Device${RESET}"
+        echo -e "  ${CYAN}${det_label}${RESET}"
+        echo ""
+    fi
+
+    echo -e " ${DIM}audiofx set <name>  |  audiofx mode <mode>  |  audiofx off${RESET}"
     echo ""
 }
 
@@ -215,18 +177,18 @@ cmd_status() {
     load_state
     echo ""
     echo -e " ${BOLD}Current Audio State${RESET}"
-    echo -e "  Signature : ${ORANGE}${SIGNATURE:-none}${RESET}"
-    echo -e "  Device    : ${CYAN}${DEVICE:-none}${RESET}"
-    echo -e "  Mode      : ${PURPLE}${MODE:-none}${RESET}"
-    echo -e "  Preset    : ${GREEN}${APPLIED_PRESET:-none}${RESET}"
-    echo -e "  Set at    : ${DIM}${TIMESTAMP:-unknown}${RESET}"
+    echo -e "  Signature     : ${ORANGE}${SIGNATURE:-none}${RESET}"
+    echo -e "  Experience    : ${PURPLE}${MODE:-none}${RESET}"
+    echo -e "  Auto-device   : ${CYAN}${DEVICE:-detecting...}${RESET}"
+    echo -e "  Active preset : ${GREEN}${APPLIED_PRESET:-none}${RESET}"
+    echo -e "  Set at        : ${DIM}${TIMESTAMP:-unknown}${RESET}"
+    echo ""
 
-    local bypass_state
-    bypass_state=$(easyeffects --bypass 3 2>/dev/null || echo "unknown")
-    if [[ "$bypass_state" == "1" ]]; then
-        echo -e "  EasyFX    : ${YELLOW}bypassed (off)${RESET}"
-    else
-        echo -e "  EasyFX    : ${GREEN}active${RESET}"
+    # Live device detection
+    if [[ -f "$SMART_SCRIPT" ]] && command -v python3 >/dev/null; then
+        local det
+        det=$(python3 "$SMART_SCRIPT" detect 2>/dev/null || echo "unknown")
+        echo -e "  Now detected  : ${CYAN}${det}${RESET}"
     fi
     echo ""
 }
@@ -234,118 +196,68 @@ cmd_status() {
 cmd_set() {
     local name="${1:-}"
     [[ -z "$name" ]] && die "Usage: audiofx set <SignatureName>"
-    preset_exists "$name" || die "Preset '$name' not found. Run: audiofx list"
-    ee_apply "$name"
-    load_state
-    save_state "$name" "${DEVICE:-}" "${MODE:-}" "$name"
-    info "Sound signature set to ${ORANGE}${name}${RESET}"
+    echo -e " Applying ${BOLD}${name}${RESET}..."
+    smart_apply "$name" "signature"
     tip "${SIG_DESC[$name]:-}"
-}
-
-cmd_profile() {
-    local name="${1:-}"
-    [[ -z "$name" ]] && die "Usage: audiofx profile <DeviceName>"
-    preset_exists "$name" || die "Device profile '$name' not found. Run: audiofx list"
-    ee_apply "$name"
-    load_state
-    save_state "${SIGNATURE:-}" "$name" "${MODE:-}" "$name"
-    info "Device profile set to ${CYAN}${name}${RESET}"
-    tip "${DEV_DESC[$name]:-}"
 }
 
 cmd_mode() {
     local name="${1:-}"
     [[ -z "$name" ]] && die "Usage: audiofx mode <ModeName>"
-    preset_exists "$name" || die "Mode '$name' not found. Run: audiofx list"
-    ee_apply "$name"
-    load_state
-    save_state "${SIGNATURE:-}" "${DEVICE:-}" "$name" "$name"
-    info "Experience mode set to ${PURPLE}${name}${RESET}"
+    echo -e " Applying mode ${BOLD}${name}${RESET}..."
+    smart_apply "$name" "mode"
     tip "${MODE_DESC[$name]:-}"
 }
 
 cmd_off() {
     easyeffects --bypass 1
     save_state "" "" "" "off"
-    info "All audio effects bypassed (flat output)"
+    info "All audio effects bypassed"
 }
 
-cmd_auto() {
-    local device
-    device=$(detect_device)
-    echo -e " ${BOLD}Auto-detecting device...${RESET}"
-    info "Detected: ${CYAN}${device}${RESET}"
-
-    if preset_exists "$device"; then
-        ee_apply "$device"
-        save_state "" "$device" "" "$device"
-        info "Applied device profile: ${CYAN}${device}${RESET}"
-        tip "${DEV_DESC[$device]:-}"
+cmd_device() {
+    if [[ -f "$SMART_SCRIPT" ]] && command -v python3 >/dev/null; then
+        echo ""
+        python3 "$SMART_SCRIPT" info 2>/dev/null | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+print(f'  Sink         : {d[\"sink\"]}')
+print(f'  Device type  : {d[\"detected_device\"]}')
+print(f'  Label        : {d[\"label\"]}')
+print(f'  Compensation : {d[\"compensation\"] or \"none (reference)\"}')
+print(f'  Base preset  : {d[\"device_preset\"]}')
+"
+        echo ""
     else
-        warn "No profile found for '$device', applying Harman reference"
-        ee_apply "Harman"
-        save_state "Harman" "$device" "" "Harman"
+        die "audiofx-smart not installed. Run install.sh"
     fi
-}
-
-cmd_apply() {
-    # audiofx apply headphones+marshall+cinema
-    local combo="${1:-}"
-    [[ -z "$combo" ]] && die "Usage: audiofx apply <part1+part2+...>"
-
-    local parts
-    IFS='+' read -ra parts <<< "${combo,,}"
-
-    local last_applied=""
-    for part in "${parts[@]}"; do
-        # Case-insensitive match against available presets
-        for preset_file in "${PRESET_DIR}"/*.json; do
-            local pname
-            pname=$(basename "$preset_file" .json)
-            if [[ "${pname,,}" == "$part" ]]; then
-                echo -e "  Applying: ${GREEN}${pname}${RESET}"
-                ee_apply "$pname"
-                last_applied="$pname"
-                sleep 0.3
-                break
-            fi
-        done
-    done
-
-    [[ -n "$last_applied" ]] && info "Applied: ${combo}" || die "No matching presets found for: ${combo}"
 }
 
 cmd_help() {
     echo ""
-    echo -e " ${BOLD}audiofx${RESET} — Audio Mode Switcher  ${DIM}v${VERSION}${RESET}"
+    echo -e " ${BOLD}audiofx${RESET} ${DIM}v${VERSION}${RESET}  —  Smart Audio Mode Switcher"
+    echo -e " ${DIM}Auto-detects your device. Just pick the sound you want.${RESET}"
     echo ""
     echo -e " ${BOLD}USAGE${RESET}"
-    echo -e "   audiofx ${CYAN}list${RESET}                   Show all presets"
-    echo -e "   audiofx ${CYAN}status${RESET}                 Show current state"
-    echo -e "   audiofx ${CYAN}set${RESET} <Name>             Apply a sound signature"
-    echo -e "   audiofx ${CYAN}profile${RESET} <Device>       Apply a device profile"
-    echo -e "   audiofx ${CYAN}mode${RESET} <Mode>            Apply an experience mode"
-    echo -e "   audiofx ${CYAN}apply${RESET} <a+b+c>          Apply multiple presets"
-    echo -e "   audiofx ${CYAN}auto${RESET}                   Auto-detect device + apply"
-    echo -e "   audiofx ${CYAN}off${RESET}                    Bypass all effects"
+    echo -e "   audiofx ${CYAN}list${RESET}           Show all signatures + modes"
+    echo -e "   audiofx ${CYAN}status${RESET}         Show current state + detected device"
+    echo -e "   audiofx ${CYAN}device${RESET}         Show detected device details"
+    echo -e "   audiofx ${CYAN}set${RESET} <Name>     Apply a sound signature (device auto-tuned)"
+    echo -e "   audiofx ${CYAN}mode${RESET} <Name>    Apply an experience mode (device auto-tuned)"
+    echo -e "   audiofx ${CYAN}off${RESET}            Bypass all effects"
     echo ""
     echo -e " ${BOLD}EXAMPLES${RESET}"
-    echo -e "   audiofx set Marshall"
-    echo -e "   audiofx set Dolby-Atmos"
-    echo -e "   audiofx profile Headphones"
-    echo -e "   audiofx mode Cinema"
-    echo -e "   audiofx apply headphones+marshall"
-    echo -e "   audiofx auto"
+    echo -e "   audiofx set Marshall       → warm bass (headphone crossfeed auto-added)"
+    echo -e "   audiofx set Dolby-Atmos    → spatial + wide (bass boost if earbuds)"
+    echo -e "   audiofx mode Cinema        → cinematic (auto-tuned for your device)"
+    echo -e "   audiofx mode Gaming        → positional audio"
     echo ""
-    echo -e " ${BOLD}SOUND SIGNATURES${RESET}"
+    echo -e " ${BOLD}SIGNATURES${RESET}"
     echo -e "   Marshall · Dolby-Atmos · Harman · Sony-Clear · Bose-Comfort"
     echo -e "   JBL-Loud · Sennheiser-Detail · Bass-Beast · Vocal-Clarity"
-    echo -e "   Lo-Fi · Crystal-Air"
+    echo -e "   Lo-Fi · Crystal-Air · Night-Mode"
     echo ""
-    echo -e " ${BOLD}DEVICE PROFILES${RESET}"
-    echo -e "   Headphones · IEM · Earbuds · Laptop-Speakers · Desktop-Speakers"
-    echo ""
-    echo -e " ${BOLD}EXPERIENCE MODES${RESET}"
+    echo -e " ${BOLD}MODES${RESET}"
     echo -e "   Cinema · Gaming · Party · Focus"
     echo ""
 }
@@ -357,19 +269,16 @@ shift || true
 case "$cmd" in
     list|ls)         cmd_list ;;
     status|st)       cmd_status ;;
+    device|dev)      cmd_device ;;
     set|s)           cmd_set "$@" ;;
-    profile|p)       cmd_profile "$@" ;;
     mode|m)          cmd_mode "$@" ;;
-    apply|a)         cmd_apply "$@" ;;
-    auto)            cmd_auto ;;
     off|bypass)      cmd_off ;;
     version|-v)      echo "audiofx v${VERSION}" ;;
     help|-h|--help)  cmd_help ;;
     *)
-        # Try it as a direct preset name (shortcut)
+        # Try as a direct preset name
         if preset_exists "$cmd"; then
-            ee_apply "$cmd"
-            info "Applied: ${cmd}"
+            smart_apply "$cmd"
         else
             die "Unknown command '$cmd'. Run: audiofx help"
         fi
