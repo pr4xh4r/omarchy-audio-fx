@@ -94,7 +94,8 @@ def detect_device():
             r"|portable.*speaker|home.*audio|jbl\s*(go|clip|bar)|ue\s*(boom|roll)"
             r"|anker\s*sound|tribit|marshall\s*(acton|stanmore|woburn|emberton|tufton)"
             r"|bose\s*(soundlink|home|smart\s*speaker)|sonos|harman\s*kardon"
-            r"|ultimate\s*ears|creative\s*(pebble|t\d)|edifier|klipsch",
+            r"|ultimate\s*ears|creative\s*(pebble|t\d)|edifier|klipsch"
+            r"|\bboat\b|aavante|partypal|stone\s*\d+|blaster",
             blob
         ):
             return "desktop-speakers"
