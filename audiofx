@@ -217,21 +217,71 @@ cmd_off() {
 
 cmd_device() {
     if [[ -f "$SMART_SCRIPT" ]] && command -v python3 >/dev/null; then
+        local raw
+        raw=$(python3 "$SMART_SCRIPT" info 2>/dev/null) || { die "audiofx-smart not installed. Run install.sh"; return; }
+
+        local dev_name det_device label comp override
+        dev_name=$(echo "$raw" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('device_name','?'))" 2>/dev/null)
+        det_device=$(echo "$raw" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('detected_device','?'))" 2>/dev/null)
+        label=$(echo "$raw" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('label','?'))" 2>/dev/null)
+        comp=$(echo "$raw" | python3 -c "import json,sys; d=json.load(sys.stdin); c=d.get('compensation',[]); print(', '.join(p.split('#')[0] for p in c) if c else 'none')" 2>/dev/null)
+        override=$(echo "$raw" | python3 -c "import json,sys; d=json.load(sys.stdin); print('yes' if d.get('override') else 'no')" 2>/dev/null)
+
         echo ""
-        python3 "$SMART_SCRIPT" info 2>/dev/null | python3 -c "
-import json, sys
-d = json.load(sys.stdin)
-print(f'  Sink         : {d[\"sink\"]}')
-print(f'  Device type  : {d[\"detected_device\"]}')
-print(f'  Label        : {d[\"label\"]}')
-print(f'  Compensation : {d[\"compensation\"] or \"none (reference)\"}')
-print(f'  Base preset  : {d[\"device_preset\"]}')
-"
+        echo -e " ${BOLD}🎧 Active Device${RESET}"
+        echo -e "   ${CYAN}${dev_name}${RESET}"
+        echo ""
+        echo -e "   Type         : ${ORANGE}${det_device}${RESET}$(  [[ "$override" == "yes" ]] && echo -e "  ${YELLOW}(manually set)${RESET}" )"
+        echo -e "   Tuning       : ${GREEN}${label}${RESET}"
+        echo -e "   Auto-adds    : ${DIM}${comp}${RESET}"
+        echo ""
+        echo -e " ${BOLD}Change detection:${RESET}"
+        echo -e "   ${CYAN}audiofx device set headphones${RESET}       → force headphone tuning"
+        echo -e "   ${CYAN}audiofx device set earbuds${RESET}          → force earbud tuning"
+        echo -e "   ${CYAN}audiofx device set iem${RESET}              → force IEM tuning"
+        echo -e "   ${CYAN}audiofx device set laptop-speakers${RESET}  → force laptop speaker tuning"
+        echo -e "   ${CYAN}audiofx device set desktop-speakers${RESET} → force desktop speaker tuning"
+        echo -e "   ${CYAN}audiofx device reset${RESET}                → back to auto-detection"
         echo ""
     else
         die "audiofx-smart not installed. Run install.sh"
     fi
 }
+
+cmd_device_set() {
+    local dtype="${1:-}"
+    local valid=("headphones" "iem" "earbuds" "laptop-speakers" "desktop-speakers")
+    local ok=0
+    for v in "${valid[@]}"; do [[ "$v" == "$dtype" ]] && ok=1; done
+
+    if [[ $ok -eq 0 ]]; then
+        echo -e " ${RED}✗${RESET} Unknown device type: ${dtype}"
+        echo ""
+        echo -e " Valid options:"
+        echo -e "   ${CYAN}headphones${RESET}       — over-ear wired headphones (adds crossfeed)"
+        echo -e "   ${CYAN}iem${RESET}              — wired in-ear monitors (resonance fix)"
+        echo -e "   ${CYAN}earbuds${RESET}          — TWS/Bluetooth earbuds (bass virtualization)"
+        echo -e "   ${CYAN}laptop-speakers${RESET}  — laptop built-in speakers (bass + widening)"
+        echo -e "   ${CYAN}desktop-speakers${RESET} — bookshelf/BT speakers (reference)"
+        echo ""
+        exit 1
+    fi
+
+    python3 "$SMART_SCRIPT" set-override "$dtype" >/dev/null
+    info "Device override set to: ${CYAN}${dtype}${RESET}"
+    tip "Re-apply your preset to hear the change: audiofx set Marshall"
+    echo ""
+}
+
+cmd_device_reset() {
+    python3 "$SMART_SCRIPT" clear-override >/dev/null 2>&1 || true
+    info "Device override cleared — back to auto-detection"
+    local detected
+    detected=$(python3 "$SMART_SCRIPT" detect 2>/dev/null || echo "unknown")
+    tip "Auto-detected: ${CYAN}${detected}${RESET}"
+    echo ""
+}
+
 
 cmd_help() {
     echo ""
@@ -269,7 +319,15 @@ shift || true
 case "$cmd" in
     list|ls)         cmd_list ;;
     status|st)       cmd_status ;;
-    device|dev)      cmd_device ;;
+    device|dev)
+        subcmd="${1:-}"; shift || true
+        case "$subcmd" in
+            set)   cmd_device_set "$@" ;;
+            reset) cmd_device_reset ;;
+            "")    cmd_device ;;
+            *)     die "Unknown: audiofx device ${subcmd}. Try: set <type> | reset" ;;
+        esac
+        ;;
     set|s)           cmd_set "$@" ;;
     mode|m)          cmd_mode "$@" ;;
     off|bypass)      cmd_off ;;
@@ -284,3 +342,4 @@ case "$cmd" in
         fi
         ;;
 esac
+

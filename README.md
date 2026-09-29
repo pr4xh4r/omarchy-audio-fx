@@ -122,7 +122,7 @@ bind = SUPER, M, exec, audio-mode
 ```bash
 audiofx list              # see all signatures and modes
 audiofx status            # what's active + what device was detected
-audiofx device            # show device detection details
+audiofx device            # show device name, type, and what's being applied
 audiofx set Marshall      # apply Marshall (device auto-tuned)
 audiofx set Dolby-Atmos   # apply Dolby Atmos (device auto-tuned)
 audiofx mode Cinema       # apply Cinema mode (device auto-tuned)
@@ -130,12 +130,26 @@ audiofx mode Gaming       # apply Gaming mode
 audiofx off               # turn off all effects
 ```
 
+**If the auto-detection gets your device wrong**, you can override it:
+
+```bash
+audiofx device set headphones       # force headphone tuning (crossfeed)
+audiofx device set earbuds          # force earbud tuning (bass virtualization)
+audiofx device set iem              # force IEM tuning (resonance fix)
+audiofx device set laptop-speakers  # force laptop speaker tuning
+audiofx device set desktop-speakers # force desktop speaker / BT speaker tuning
+audiofx device reset                # go back to auto-detection
+```
+
+The override is saved persistently — it stays until you reset it, even after reboots.
+
 Shortcut — just type the preset name directly:
 
 ```bash
 audiofx Marshall
 audiofx Dolby-Atmos
 ```
+
 
 ---
 
