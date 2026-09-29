@@ -1,36 +1,64 @@
 #!/usr/bin/env bash
-# audio-mode — cycle EasyEffects presets via Super+M
+# audio-mode — cycle ALL EasyEffects presets via Super+M
 # Part of: omarchy-audio-fx  |  https://github.com/pr4xh4r/omarchy-audio-fx
 #
-# Modes (cycle forward on each Super+M press):
-#   0  Off
-#   1  Marshall       — Warm bass · Punchy mids · Guitar-amp feel
-#   2  Dolby-Atmos    — Wide · Immersive · Spatial cinema
-#   3  Harman         — Research-backed · Most humans prefer this
-#   4  Sony-Clear     — Deep bass · Crystal vocals · ANC-inspired
-#   5  Bose-Comfort   — Balanced · Warm · Zero listening fatigue
-#   6  JBL-Loud       — V-shaped · Energetic · Party-ready
-#   7  Bass-Beast     — Sub-heavy · Psychoacoustic bass · Club
-#   8  Vocal-Clarity  — Speech-forward · Podcast · Remove rumble
-#   9  Lo-Fi          — Vintage · Tape warmth · Rolled highs
-#  10  Crystal-Air    — Airy · Detailed · Open soundstage
+# Full cycle (22 states — press Super+M to advance):
+#
+#  ─── 🎵 Sound Signatures ────────────────────────────────────────────
+#   0  Off              — No processing (bypass)
+#   1  Marshall         — Warm bass · Punchy mids · Guitar-amp feel
+#   2  Dolby-Atmos      — Wide · Immersive · Spatial cinema
+#   3  Harman           — Research-backed · Most humans prefer this
+#   4  Sony-Clear       — Deep bass · Crystal vocals · ANC-inspired
+#   5  Bose-Comfort     — Balanced · Warm · Zero listening fatigue
+#   6  JBL-Loud         — V-shaped · Energetic · Party-ready
+#   7  Sennheiser-Detail— Analytical · Flat · Wide soundstage
+#   8  Bass-Beast       — Sub-heavy · Psychoacoustic bass · Club
+#   9  Vocal-Clarity    — Speech-forward · Podcast · Remove rumble
+#  10  Lo-Fi            — Vintage · Tape warmth · Rolled highs
+#  11  Crystal-Air      — Airy · Detailed · Open soundstage
+#  12  Night-Mode       — Soft · Compressed · Late-night listening
+#
+#  ─── 🎧 Device Profiles ─────────────────────────────────────────────
+#  13  Headphones       — Crossfeed enabled · Harman-corrected
+#  14  IEM              — Resonance fix · Treble smoothed
+#  15  Earbuds          — Psychoacoustic bass virtualization
+#  16  Laptop-Speakers  — Bass virtual · Stereo widened
+#  17  Desktop-Speakers — Reference balance · Room-compensated
+#
+#  ─── 🌍 Experience Modes ────────────────────────────────────────────
+#  18  Cinema           — Wide stage · Dialogue boost · Depth
+#  19  Gaming           — Positional cues · 2–8kHz · Fast transients
+#  20  Party            — Max bass · Hard limiter · Protected
+#  21  Focus            — Flat · Crossfeed · Non-fatiguing
 
 STATE_FILE="$HOME/.local/share/audio-mode-state"
-TOTAL_MODES=11  # 0..10
+TOTAL_MODES=22  # 0..21
 
 # ── Mode definitions ──────────────────────────────────────────────────────────
 MODE_PRESET=(
-  ""               # 0 — Off (bypass)
-  "Marshall"       # 1
-  "Dolby-Atmos"    # 2
-  "Harman"         # 3
-  "Sony-Clear"     # 4
-  "Bose-Comfort"   # 5
-  "JBL-Loud"       # 6
-  "Bass-Beast"     # 7
-  "Vocal-Clarity"  # 8
-  "Lo-Fi"          # 9
-  "Crystal-Air"    # 10
+  ""                   #  0 — Off (bypass)
+  "Marshall"           #  1
+  "Dolby-Atmos"        #  2
+  "Harman"             #  3
+  "Sony-Clear"         #  4
+  "Bose-Comfort"       #  5
+  "JBL-Loud"           #  6
+  "Sennheiser-Detail"  #  7
+  "Bass-Beast"         #  8
+  "Vocal-Clarity"      #  9
+  "Lo-Fi"              # 10
+  "Crystal-Air"        # 11
+  "Night-Mode"         # 12
+  "Headphones"         # 13
+  "IEM"                # 14
+  "Earbuds"            # 15
+  "Laptop-Speakers"    # 16
+  "Desktop-Speakers"   # 17
+  "Cinema"             # 18
+  "Gaming"             # 19
+  "Party"              # 20
+  "Focus"              # 21
 )
 
 MODE_TITLE=(
@@ -41,10 +69,21 @@ MODE_TITLE=(
   "🩵  Sony Clear"
   "🟣  Bose Comfort"
   "🔴  JBL Loud"
+  "⬜  Sennheiser Detail"
   "💥  Bass Beast"
   "🎙️  Vocal Clarity"
   "📻  Lo-Fi"
   "💎  Crystal Air"
+  "🌙  Night Mode"
+  "🎧  Headphones"
+  "🎵  IEM"
+  "🎶  Earbuds"
+  "💻  Laptop Speakers"
+  "🔊  Desktop Speakers"
+  "🎬  Cinema"
+  "🎮  Gaming"
+  "🎉  Party"
+  "📚  Focus"
 )
 
 MODE_BODY=(
@@ -55,15 +94,37 @@ MODE_BODY=(
   "Deep bass · Crystal vocals · ANC-inspired"
   "Balanced · Warm · Zero listening fatigue"
   "V-shaped · Energetic · Party-ready"
+  "Analytical · Flat reference · Wide soundstage"
   "Sub-heavy · Psychoacoustic bass · Club feel"
   "Speech-forward · Podcast · Removes rumble"
   "Vintage · Tape warmth · Rolled highs"
   "Airy · Detailed · Open IEM soundstage"
+  "Soft · Compressed dynamics · Late-night"
+  "Crossfeed ON · Harman curve · Over-ear"
+  "Resonance fix · Treble smoothed · In-ear"
+  "Bass virtualized · BT-compensated · Buds"
+  "Bass virtual · Stereo widened · Laptop"
+  "Reference balance · Room-compensated"
+  "Wide stage · Dialogue boost · Cinematic depth"
+  "Positional cues · 2–8kHz detail · Fast"
+  "Max bass · Hard limiter · Protected speakers"
+  "Flat · Crossfeed · Non-fatiguing · Work mode"
+)
+
+# ── Section labels for notification (shown as subtitle prefix) ────────────────
+MODE_SECTION=(
+  ""
+  "🎵 Signature"  "🎵 Signature"  "🎵 Signature"  "🎵 Signature"
+  "🎵 Signature"  "🎵 Signature"  "🎵 Signature"  "🎵 Signature"
+  "🎵 Signature"  "🎵 Signature"  "🎵 Signature"  "🎵 Signature"
+  "🎧 Device"     "🎧 Device"     "🎧 Device"     "🎧 Device"     "🎧 Device"
+  "🌍 Mode"       "🌍 Mode"       "🌍 Mode"       "🌍 Mode"
 )
 
 # ── Read & advance state ──────────────────────────────────────────────────────
 current=$(cat "$STATE_FILE" 2>/dev/null || echo "0")
-# Clamp in case the file has stale value from old 3-mode script
+
+# Clamp: handle stale values from old 3-mode or 11-mode script versions
 if ! [[ "$current" =~ ^[0-9]+$ ]] || (( current >= TOTAL_MODES )); then
   current=0
 fi
@@ -71,11 +132,10 @@ fi
 next=$(( (current + 1) % TOTAL_MODES ))
 echo "$next" > "$STATE_FILE"
 
-# Also sync with audiofx state file (if omarchy-audio-fx is installed)
+# Sync with audiofx CLI state file
 AUDIOFX_STATE="$HOME/.config/audiofx/state"
-if [[ -f "$AUDIOFX_STATE" ]] || [[ -d "$HOME/.config/audiofx" ]]; then
+if [[ -d "$HOME/.config/audiofx" ]]; then
   preset="${MODE_PRESET[$next]}"
-  mkdir -p "$HOME/.config/audiofx"
   cat > "$AUDIOFX_STATE" <<EOF
 SIGNATURE=${preset}
 DEVICE=
@@ -96,9 +156,13 @@ else
 fi
 
 # ── Notify ────────────────────────────────────────────────────────────────────
+section="${MODE_SECTION[$next]}"
+body="${MODE_BODY[$next]}"
+[[ -n "$section" ]] && body="${section}  ·  ${body}"
+
 notify-send \
   --urgency=low \
   --expire-time=2500 \
   --hint=string:x-canonical-private-synchronous:audio-mode \
   "${MODE_TITLE[$next]}" \
-  "${MODE_BODY[$next]}"
+  "$body"
