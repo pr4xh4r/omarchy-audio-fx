@@ -11,6 +11,9 @@
 
 </div>
 
+![afx — Omarchy Sound Studio](assets/screenshot.png)
+
+
 ---
 
 I was using [Omarchy](https://omarchy.dev) on Linux and got annoyed that I had to either deal with flat boring audio or manually open EasyEffects every time I wanted to change how music sounds. So I built this — a collection of audio presets you can switch with a single keypress.
