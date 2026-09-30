@@ -111,8 +111,9 @@ def merge_and_apply(device_name: str, mode_name: str):
 
 
 def main():
-    device = sys.argv[1].strip() if len(sys.argv) > 1 else ""
-    mode   = sys.argv[2].strip() if len(sys.argv) > 2 else ""
+    def clean(s): return s.strip().strip('"').strip("'")
+    device = clean(sys.argv[1]) if len(sys.argv) > 1 else ""
+    mode   = clean(sys.argv[2]) if len(sys.argv) > 2 else ""
 
     if not device and not mode:
         ee("--bypass", "1")
