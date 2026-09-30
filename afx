@@ -9,72 +9,62 @@ APPLY_SCRIPT = os.path.join(PLUGIN_DIR, "apply-audio.py")
 STATE_FILE   = os.path.expanduser("~/.local/share/afx/state.json")
 
 # ── Colors ────────────────────────────────────────────────────────────────────
-R    = "\033[0m"
-BLD  = "\033[1m"
-DIM  = "\033[2m"
+R = "\033[0m"; BLD = "\033[1m"; DIM = "\033[2m"
 def rgb(r, g, b): return f"\033[38;2;{r};{g};{b}m"
 def bgc(r, g, b): return f"\033[48;2;{r};{g};{b}m"
-
-PURPLE = rgb(191, 90, 242);  BLUE   = rgb(66, 133, 244)
-CYAN   = rgb(76, 201, 240);  GREEN  = rgb(52, 168, 83)
-YELLOW = rgb(251, 188, 5);   ORANGE = rgb(255, 149, 10)
-RED    = rgb(234, 67, 53);   PINK   = rgb(255, 55, 95)
-WHITE  = "\033[97m";         GRAY   = "\033[38;5;245m"
-DGRAY  = "\033[38;5;238m"
+PURPLE = rgb(191,90,242);  BLUE   = rgb(66,133,244);  CYAN  = rgb(76,201,240)
+GREEN  = rgb(52,168,83);   YELLOW = rgb(251,188,5);   ORANGE= rgb(255,149,10)
+RED    = rgb(234,67,53);   PINK   = rgb(255,55,95);   WHITE = "\033[97m"
+GRAY   = "\033[38;5;245m"; DGRAY  = "\033[38;5;238m"
 
 # ── Catalogs ──────────────────────────────────────────────────────────────────
 DEVICES = [
-    {"label": "Auto",             "desc": "No device compensation",     "icon": "o", "preset": "",                  "color": GRAY},
-    {"label": "Headphones",       "desc": "Over-ear headphones",        "icon": "H", "preset": "Headphones",        "color": ORANGE},
-    {"label": "Earbuds",          "desc": "In-ear earbuds",             "icon": "E", "preset": "Earbuds",           "color": PINK},
-    {"label": "IEM",              "desc": "Studio in-ear monitors",     "icon": "I", "preset": "IEM",               "color": PURPLE},
-    {"label": "BT Speaker",       "desc": "Bluetooth speaker",          "icon": "B", "preset": "Bluetooth-Speaker", "color": BLUE},
-    {"label": "Desktop Speakers", "desc": "Desktop monitor speakers",   "icon": "D", "preset": "Desktop-Speakers",  "color": GREEN},
-    {"label": "Laptop Speakers",  "desc": "Built-in laptop speakers",   "icon": "L", "preset": "Laptop-Speakers",   "color": YELLOW},
+    {"label":"Auto",            "desc":"No device compensation",    "icon":"o","preset":"",                "color":GRAY},
+    {"label":"Headphones",      "desc":"Over-ear headphones",       "icon":"H","preset":"Headphones",      "color":ORANGE},
+    {"label":"Earbuds",         "desc":"In-ear earbuds",            "icon":"E","preset":"Earbuds",         "color":PINK},
+    {"label":"IEM",             "desc":"Studio in-ear monitors",    "icon":"I","preset":"IEM",             "color":PURPLE},
+    {"label":"BT Speaker",      "desc":"Bluetooth speaker",         "icon":"B","preset":"Bluetooth-Speaker","color":BLUE},
+    {"label":"Desktop Speakers","desc":"Desktop monitor speakers",  "icon":"D","preset":"Desktop-Speakers","color":GREEN},
+    {"label":"Laptop Speakers", "desc":"Built-in laptop speakers",  "icon":"L","preset":"Laptop-Speakers", "color":YELLOW},
 ]
 
 MODES = [
-    {"label": "Off",           "desc": "No effects -- pure device sound",  "icon": "-", "preset": "",              "color": GRAY},
-    {"label": "Marshall",      "desc": "Warm bass · Punchy mids",           "icon": "M", "preset": "Marshall",      "color": ORANGE},
-    {"label": "Dolby Atmos",   "desc": "Wide · Immersive · Spatial",        "icon": "~", "preset": "Dolby-Atmos",   "color": BLUE},
-    {"label": "Gaming",        "desc": "Spatial cues · Wide stereo",        "icon": "G", "preset": "Gaming",        "color": GREEN},
-    {"label": "Bass Boost",    "desc": "Heavy sub-bass · EDM · Hip-hop",    "icon": "b", "preset": "Bass-Boost",    "color": PINK},
-    {"label": "Bass Beast",    "desc": "Extreme bass · Max impact",         "icon": "B", "preset": "Bass-Beast",    "color": RED},
-    {"label": "Vocal",         "desc": "Clear mids · Presence · Calls",     "icon": "V", "preset": "Vocal",         "color": PURPLE},
-    {"label": "Vocal Clarity", "desc": "Enhanced speech · Crystal clear",   "icon": "v", "preset": "Vocal-Clarity", "color": rgb(218, 143, 255)},
-    {"label": "Night Mode",    "desc": "Compressed · No loud spikes",       "icon": "N", "preset": "Night-Mode",    "color": GRAY},
-    {"label": "Classical",     "desc": "Neutral · Audiophile · Hall",       "icon": "C", "preset": "Classical",     "color": YELLOW},
-    {"label": "Rock",          "desc": "V-shape · Punchy · Sizzling",       "icon": "R", "preset": "Rock",          "color": rgb(255, 105, 97)},
-    {"label": "JBL Loud",      "desc": "Booming bass · Max loudness",       "icon": "J", "preset": "JBL-Loud",      "color": ORANGE},
-    {"label": "Sennheiser",    "desc": "Warm · Forward mids · Smooth",      "icon": "S", "preset": "Sennheiser",    "color": CYAN},
-    {"label": "Sony",          "desc": "Powerful bass · Wide · Crisp",      "icon": "s", "preset": "Sony",          "color": BLUE},
-    {"label": "Bose Comfort",  "desc": "Smooth · Rich · Relaxed",           "icon": "c", "preset": "Bose-Comfort",  "color": rgb(94, 92, 230)},
-    {"label": "Harman",        "desc": "Research-tuned reference curve",    "icon": "h", "preset": "Harman",        "color": YELLOW},
-    {"label": "Cinema",        "desc": "Surround · Movie · Cinematic",      "icon": "f", "preset": "Cinema",        "color": rgb(255, 107, 53)},
-    {"label": "Party",         "desc": "Loud · Energetic · Max fun",        "icon": "P", "preset": "Party",         "color": PINK},
-    {"label": "Lo-Fi",         "desc": "Vintage · Warm · Nostalgic",        "icon": "L", "preset": "Lo-Fi",         "color": rgb(162, 132, 94)},
-    {"label": "Crystal Air",   "desc": "Airy · Open · Ultra-transparent",   "icon": "A", "preset": "Crystal-Air",   "color": CYAN},
-    {"label": "Focus",         "desc": "Flat · Clean · No distraction",     "icon": "F", "preset": "Focus",         "color": GREEN},
+    {"label":"Off",          "desc":"No effects - pure device sound", "icon":"-","preset":"",             "color":GRAY},
+    {"label":"Marshall",     "desc":"Warm bass · Punchy mids",        "icon":"M","preset":"Marshall",     "color":ORANGE},
+    {"label":"Dolby Atmos",  "desc":"Wide · Immersive · Spatial",     "icon":"~","preset":"Dolby-Atmos",  "color":BLUE},
+    {"label":"Gaming",       "desc":"Spatial cues · Wide stereo",     "icon":"G","preset":"Gaming",       "color":GREEN},
+    {"label":"Bass Boost",   "desc":"Heavy sub-bass · EDM",           "icon":"b","preset":"Bass-Boost",   "color":PINK},
+    {"label":"Bass Beast",   "desc":"Extreme bass · Max impact",      "icon":"B","preset":"Bass-Beast",   "color":RED},
+    {"label":"Vocal",        "desc":"Clear mids · Presence · Calls",  "icon":"V","preset":"Vocal",        "color":PURPLE},
+    {"label":"Vocal Clarity","desc":"Enhanced speech · Crystal clear","icon":"v","preset":"Vocal-Clarity","color":rgb(218,143,255)},
+    {"label":"Night Mode",   "desc":"Compressed · No loud spikes",    "icon":"N","preset":"Night-Mode",   "color":GRAY},
+    {"label":"Classical",    "desc":"Neutral · Audiophile · Hall",    "icon":"C","preset":"Classical",    "color":YELLOW},
+    {"label":"Rock",         "desc":"V-shape · Punchy · Sizzling",    "icon":"R","preset":"Rock",         "color":rgb(255,105,97)},
+    {"label":"JBL Loud",     "desc":"Booming bass · Max loudness",    "icon":"J","preset":"JBL-Loud",     "color":ORANGE},
+    {"label":"Sennheiser",   "desc":"Warm · Forward mids · Smooth",   "icon":"S","preset":"Sennheiser",   "color":CYAN},
+    {"label":"Sony",         "desc":"Powerful bass · Wide · Crisp",   "icon":"s","preset":"Sony",         "color":BLUE},
+    {"label":"Bose Comfort", "desc":"Smooth · Rich · Relaxed",        "icon":"c","preset":"Bose-Comfort", "color":rgb(94,92,230)},
+    {"label":"Harman",       "desc":"Research-tuned reference curve", "icon":"h","preset":"Harman",       "color":YELLOW},
+    {"label":"Cinema",       "desc":"Surround · Movie · Cinematic",   "icon":"f","preset":"Cinema",       "color":rgb(255,107,53)},
+    {"label":"Party",        "desc":"Loud · Energetic · Max fun",     "icon":"P","preset":"Party",        "color":PINK},
+    {"label":"Lo-Fi",        "desc":"Vintage · Warm · Nostalgic",     "icon":"l","preset":"Lo-Fi",        "color":rgb(162,132,94)},
+    {"label":"Crystal Air",  "desc":"Airy · Open · Ultra-transparent","icon":"A","preset":"Crystal-Air",  "color":CYAN},
+    {"label":"Focus",        "desc":"Flat · Clean · No distraction",  "icon":"F","preset":"Focus",        "color":GREEN},
 ]
 
-# ── Flat navigable row list ───────────────────────────────────────────────────
-# Each entry: ("header", text)  |  ("device", idx)  |  ("mode", idx)
-def build_rows():
-    rows = [("header", "OUTPUT DEVICE")]
+# ── Flat navigable list ───────────────────────────────────────────────────────
+# Each entry is ("device", idx) or ("mode", idx) — headers are not in this list
+def build_nav():
+    """Returns list of (section, item_index) for all navigable rows."""
+    rows = []
     rows += [("device", i) for i in range(len(DEVICES))]
-    rows += [("header", "SOUND MODE")]
-    rows += [("mode", i) for i in range(len(MODES))]
+    rows += [("mode",   i) for i in range(len(MODES))]
     return rows
-
-def nav_indices(rows):
-    """Return indices into rows[] that are navigable (not headers)."""
-    return [i for i, r in enumerate(rows) if r[0] != "header"]
 
 # ── State ─────────────────────────────────────────────────────────────────────
 def load_state():
     try:
-        with open(STATE_FILE) as f:
-            return json.load(f)
+        with open(STATE_FILE) as f: return json.load(f)
     except Exception:
         return {"device": 0, "mode": 0}
 
@@ -83,7 +73,7 @@ def save_state(device, mode):
     with open(STATE_FILE, "w") as f:
         json.dump({"device": device, "mode": mode}, f)
 
-# ── Audio control ─────────────────────────────────────────────────────────────
+# ── Audio ─────────────────────────────────────────────────────────────────────
 def apply_audio(dev_preset, mode_preset):
     if not dev_preset and not mode_preset:
         subprocess.run(["easyeffects", "--bypass", "1"], capture_output=True)
@@ -95,16 +85,25 @@ def apply_audio(dev_preset, mode_preset):
             capture_output=True
         )
 
-# ── Terminal helpers ──────────────────────────────────────────────────────────
-def term_w():
-    try:    return os.get_terminal_size().columns
-    except: return 80
+# ── Terminal ──────────────────────────────────────────────────────────────────
+def term_size():
+    try:    s = os.get_terminal_size(); return s.columns, s.lines
+    except: return 80, 24
 
 def strip_ansi(s):
-    return re.sub(r'\033\[[^m]*m', '', s)
+    return re.sub(r'\033\[[^a-zA-Z]*[a-zA-Z]', '', s)
 
-# Single-call raw keyread using os.read + select (no per-call setraw toggle)
+def write_line(line, w):
+    """Write a line padded/trimmed to exactly w columns then erase to EOL."""
+    plain = strip_ansi(line)
+    if len(plain) > w:
+        # Trim visible content — crude but safe
+        line = line[:w + (len(line) - len(plain))]
+    pad = " " * max(0, w - len(strip_ansi(line)))
+    sys.stdout.write(line + pad + "\033[K\n")
+
 def getch(fd):
+    """Read one keypress — raw, no echo, with escape-sequence detection."""
     ch = os.read(fd, 1)
     if ch == b'\x1b':
         ready, _, _ = select.select([fd], [], [], 0.05)
@@ -120,104 +119,165 @@ def getch(fd):
     return ch
 
 # ── Renderer ──────────────────────────────────────────────────────────────────
-def render(w, rows, navs, cur_nav, device, mode, status):
-    buf  = []
+HEADER_LINES = 5   # sep + title + sep + status + sep
+FOOTER_LINES = 2   # sep + hint
+
+def render(w, h, nav, cur, device, mode, status, vp_top):
+    """
+    Render the full TUI.
+    Uses cursor-home + line-by-line overwrite + erase-rest — no screen clear,
+    no scrollback pollution, no flickering.
+    """
+    avail = h - HEADER_LINES - FOOTER_LINES   # rows available for items list
+
+    dev = DEVICES[device]; mod = MODES[mode]
     sep  = DGRAY + "─" * w + R
     thin = DGRAY + "╌" * (w - 4) + R
 
-    # Header
-    title = f"  {PURPLE}{BLD}afx{R}  {GRAY}Omarchy Sound Studio{R}"
-    buf.append(sep)
-    buf.append(title)
-    buf.append(sep)
+    # Move cursor to top-left (no clear — we overwrite line by line)
+    sys.stdout.write("\033[H")
 
-    # Status / current state
-    dev = DEVICES[device]; mod = MODES[mode]
+    # ── Header (5 lines) ─────────────────────────────────────────
+    write_line(sep, w)
+    write_line(f"  {PURPLE}{BLD}afx{R}  {GRAY}Omarchy Sound Studio{R}", w)
+    write_line(sep, w)
     if status:
-        buf.append(f"  {CYAN}{BLD}{status}{R}")
+        write_line(f"  {CYAN}{BLD}{status}{R}", w)
     else:
         d_s = f"{dev['color']}{dev['icon']} {dev['label']}{R}"
-        m_s = f"{mod['color']}{mod['icon']} {mod['label']}{R}" if mode else f"{GRAY}Off{R}"
-        buf.append(f"  {GRAY}Device:{R} {d_s}   {GRAY}Mode:{R} {m_s}")
-    buf.append(sep)
+        m_s = (f"{mod['color']}{mod['icon']} {mod['label']}{R}") if mode else f"{GRAY}Off{R}"
+        write_line(f"  {GRAY}Device:{R} {d_s}   {GRAY}Mode:{R} {m_s}", w)
+    write_line(sep, w)
 
-    cur_row_idx = navs[cur_nav]
+    # ── Build full item lines list ────────────────────────────────
+    item_lines = []   # list of (rendered_line, nav_index_or_None)
 
-    for row_idx, row in enumerate(rows):
-        kind = row[0]
+    def section_header(title):
+        item_lines.append((f"  {GRAY}{BLD}{title}{R}", None))
+        item_lines.append((f"  {thin}", None))
 
-        if kind == "header":
-            buf.append(f"\n  {GRAY}{BLD}{row[1]}{R}")
-            buf.append(f"  {thin}")
-            continue
+    section_header("OUTPUT DEVICE")
+    for ni, (sec, idx) in enumerate(nav):
+        if sec != "device": break
+        item  = DEVICES[idx]
+        is_active  = (idx == device)
+        is_cursor  = (ni == cur)
+        c     = item["color"]
+        label = f"{item['label']:<16}"
+        desc  = item["desc"]
+        icon  = item["icon"]
 
-        sec, item_idx   = row
-        item            = DEVICES[item_idx] if sec == "device" else MODES[item_idx]
-        is_active       = (item_idx == device) if sec == "device" else (item_idx == mode)
-        is_cursor       = (row_idx == cur_row_idx)
-        c               = item["color"]
-        label           = f"{item['label']:<16}"
-        desc            = item["desc"]
-        icon            = item["icon"]
-
-        if is_active and is_cursor:
-            bullet = f"{c}>{R}"; ltext = f"{c}{BLD}{label}{R}"
-            dtext  = f"{c}{DIM}{desc}{R}"; badge = f" {c}*{R}"
-            bg     = bgc(40, 28, 60)
+        if is_cursor and is_active:
+            bg   = bgc(40,28,60)
+            bul  = f"{c}>{R}"; lt = f"{c}{BLD}{label}{R}"; dt = f"{c}{DIM}{desc}{R}"; bd = f" {c}*{R}"
         elif is_active:
-            bullet = f"{c}>{R}"; ltext = f"{c}{BLD}{label}{R}"
-            dtext  = f"{c}{DIM}{desc}{R}"; badge = f" {c}*{R}"
-            bg     = ""
+            bg   = ""
+            bul  = f"{c}>{R}"; lt = f"{c}{BLD}{label}{R}"; dt = f"{c}{DIM}{desc}{R}"; bd = f" {c}*{R}"
         elif is_cursor:
-            bullet = f"{WHITE}>{R}"; ltext = f"{WHITE}{BLD}{label}{R}"
-            dtext  = f"{GRAY}{desc}{R}"; badge = ""
-            bg     = bgc(28, 28, 48)
+            bg   = bgc(28,28,48)
+            bul  = f"{WHITE}>{R}"; lt = f"{WHITE}{BLD}{label}{R}"; dt = f"{GRAY}{desc}{R}"; bd = ""
         else:
-            bullet = f"{DGRAY}.{R}"; ltext = f"{GRAY}{label}{R}"
-            dtext  = f"{DGRAY}{desc}{R}"; badge = ""
-            bg     = ""
+            bg   = ""
+            bul  = f"{DGRAY}.{R}"; lt = f"{GRAY}{label}{R}"; dt = f"{DGRAY}{desc}{R}"; bd = ""
 
-        line     = f"  {bg} {bullet} {c}{icon}{R} {ltext} {dtext}{badge}{R}"
-        pad      = " " * max(0, w - len(strip_ansi(line)))
-        buf.append(line + pad)
+        line = f"  {bg} {bul} {c}{icon}{R} {lt} {dt}{bd}{R}"
+        item_lines.append((line, ni))
 
-    buf.append(f"\n{sep}")
-    buf.append(f"  {GRAY}up/down navigate  .  Enter apply  .  O off  .  Q quit{R}")
+    # Blank line between sections
+    item_lines.append(("", None))
 
-    # Single atomic write — no partial renders
-    sys.stdout.write("\033[2J\033[H" + "\n".join(buf) + "\n")
+    dev_count = len(DEVICES)
+    section_header("SOUND MODE")
+    for ni, (sec, idx) in enumerate(nav):
+        if sec != "mode": continue
+        item  = MODES[idx]
+        is_active  = (idx == mode)
+        is_cursor  = (ni == cur)
+        c     = item["color"]
+        label = f"{item['label']:<16}"
+        desc  = item["desc"]
+        icon  = item["icon"]
+
+        if is_cursor and is_active:
+            bg   = bgc(40,28,60)
+            bul  = f"{c}>{R}"; lt = f"{c}{BLD}{label}{R}"; dt = f"{c}{DIM}{desc}{R}"; bd = f" {c}*{R}"
+        elif is_active:
+            bg   = ""
+            bul  = f"{c}>{R}"; lt = f"{c}{BLD}{label}{R}"; dt = f"{c}{DIM}{desc}{R}"; bd = f" {c}*{R}"
+        elif is_cursor:
+            bg   = bgc(28,28,48)
+            bul  = f"{WHITE}>{R}"; lt = f"{WHITE}{BLD}{label}{R}"; dt = f"{GRAY}{desc}{R}"; bd = ""
+        else:
+            bg   = ""
+            bul  = f"{DGRAY}.{R}"; lt = f"{GRAY}{label}{R}"; dt = f"{DGRAY}{desc}{R}"; bd = ""
+
+        line = f"  {bg} {bul} {c}{icon}{R} {lt} {dt}{bd}{R}"
+        item_lines.append((line, ni))
+
+    # ── Viewport: auto-scroll so cursor is always visible ─────────
+    total = len(item_lines)
+    # find line index of cursor row
+    cursor_line = next((i for i, (_, ni) in enumerate(item_lines) if ni == cur), 0)
+
+    # Keep cursor in viewport
+    if cursor_line < vp_top:
+        vp_top = cursor_line
+    elif cursor_line >= vp_top + avail:
+        vp_top = cursor_line - avail + 1
+    vp_top = max(0, min(vp_top, total - avail))
+
+    visible = item_lines[vp_top: vp_top + avail]
+
+    # ── Draw items ────────────────────────────────────────────────
+    for line, _ in visible:
+        write_line(line, w)
+
+    # Fill any unused rows below items (prevents stale content)
+    for _ in range(avail - len(visible)):
+        write_line("", w)
+
+    # ── Footer (2 lines) ─────────────────────────────────────────
+    # Scroll indicator
+    pct = int((vp_top / max(1, total - avail)) * 100) if total > avail else 100
+    scroll_info = f" {DGRAY}{pct}%{R}" if total > avail else ""
+    write_line(sep + scroll_info, w)
+    write_line(f"  {GRAY}up/down navigate  .  Enter apply  .  O off  .  Q quit{R}", w)
+
+    # Erase anything below (safety)
+    sys.stdout.write("\033[J")
     sys.stdout.flush()
 
-# ── TUI ───────────────────────────────────────────────────────────────────────
+    return vp_top   # return adjusted viewport top
+
+# ── TUI loop ─────────────────────────────────────────────────────────────────
 def run_tui():
     state  = load_state()
     device = state.get("device", 0)
     mode   = state.get("mode", 0)
 
-    rows   = build_rows()
-    navs   = nav_indices(rows)
+    nav    = build_nav()   # flat list of (section, idx)
+    cur    = 0             # cursor index into nav
+    vp_top = 0             # viewport scroll offset
 
-    # Start cursor on current mode row
-    cur_nav = 0
-    for ni, ri in enumerate(navs):
-        r = rows[ri]
-        if r[0] == "mode" and r[1] == mode:
-            cur_nav = ni
-            break
+    # Start cursor on current mode
+    for i, (sec, idx) in enumerate(nav):
+        if sec == "mode" and idx == mode:
+            cur = i; break
 
     fd  = sys.stdin.fileno()
     old = termios.tcgetattr(fd)
 
-    sys.stdout.write("\033[?25l")   # hide cursor
+    # Hide cursor + clear screen fully (once) + clear scrollback
+    sys.stdout.write("\033[?25l\033[3J\033[2J\033[H")
     sys.stdout.flush()
 
+    status = ""
     try:
-        tty.setraw(fd)              # raw mode set ONCE here, not per keystroke
-        status = ""
+        tty.setraw(fd)   # raw mode set ONCE — stays until finally
 
         while True:
-            w = term_w()
-            render(w, rows, navs, cur_nav, device, mode, status)
+            w, h = term_size()
+            vp_top = render(w, h, nav, cur, device, mode, status, vp_top)
             status = ""
 
             key = getch(fd)
@@ -225,59 +285,58 @@ def run_tui():
             if key in (b'q', b'Q', b'\x03'):
                 break
 
-            elif key == b'\x1b[A':          # Up
-                cur_nav = (cur_nav - 1) % len(navs)
+            elif key == b'\x1b[A':   # Up arrow
+                cur = (cur - 1) % len(nav)
 
-            elif key == b'\x1b[B':          # Down
-                cur_nav = (cur_nav + 1) % len(navs)
+            elif key == b'\x1b[B':   # Down arrow
+                cur = (cur + 1) % len(nav)
 
-            elif key in (b'\r', b'\n', b' '):  # Enter / Space
-                sec, item_idx = rows[navs[cur_nav]]
+            elif key in (b'\r', b'\n', b' '):   # Enter / Space — apply
+                sec, idx = nav[cur]
                 if sec == "device":
-                    device = item_idx
+                    device = idx
                 else:
-                    mode = item_idx
+                    mode = idx
                 save_state(device, mode)
-                status = f"Applying {DEVICES[device]['label']} + {MODES[mode]['label']}..."
-                render(w, rows, navs, cur_nav, device, mode, status)
+                label = DEVICES[idx]["label"] if sec == "device" else MODES[idx]["label"]
+                status = f"Applying {label}..."
+                w, h = term_size()
+                render(w, h, nav, cur, device, mode, status, vp_top)
                 apply_audio(DEVICES[device]["preset"], MODES[mode]["preset"])
-                time.sleep(0.4)
-                status = "Done"
+                time.sleep(0.35)
+                status = "Applied"
 
-            elif key in (b'o', b'O'):       # O — turn off mode
+            elif key in (b'o', b'O'):   # O — off
                 mode = 0
                 save_state(device, 0)
                 status = "Effects off"
                 apply_audio(DEVICES[device]["preset"], "")
 
     finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old)   # restore terminal
-        sys.stdout.write("\033[?25h\033[2J\033[H")      # show cursor, clear
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+        sys.stdout.write("\033[?25h\033[2J\033[H")
         sys.stdout.flush()
 
         dev = DEVICES[device]; mod = MODES[mode]
+        m_s = f"{mod['color']}{mod['icon']} {mod['label']}{R}" if mode else f"{GRAY}Off{R}"
         print(f"\n  {PURPLE}{BLD}afx{R}  {GRAY}effects running in background{R}")
         print(f"  {GRAY}Device:{R} {dev['color']}{dev['icon']} {dev['label']}{R}")
-        m_str = f"{mod['color']}{mod['icon']} {mod['label']}{R}" if mode else f"{GRAY}Off{R}"
-        print(f"  {GRAY}Mode:  {R} {m_str}")
+        print(f"  {GRAY}Mode:  {R} {m_s}")
         print(f"\n  {DGRAY}Type {WHITE}afx{DGRAY} to change  .  {WHITE}afx --off{DGRAY} to disable{R}\n")
 
 # ── CLI flags ─────────────────────────────────────────────────────────────────
 def cmd_status():
-    state = load_state()
-    dev = DEVICES[state.get("device", 0)]
-    mod = MODES[state.get("mode", 0)]
+    s = load_state()
+    dev = DEVICES[s.get("device", 0)]; mod = MODES[s.get("mode", 0)]
+    m   = s.get("mode", 0)
     print(f"\n  {PURPLE}{BLD}afx status{R}")
     print(f"  {GRAY}Device:{R} {dev['color']}{dev['icon']} {dev['label']}{R}  {DGRAY}{dev['desc']}{R}")
-    if state.get("mode", 0) == 0:
-        print(f"  {GRAY}Mode:  {R} {GRAY}Off -- no effects{R}")
-    else:
-        print(f"  {GRAY}Mode:  {R} {mod['color']}{mod['icon']} {mod['label']}{R}  {DGRAY}{mod['desc']}{R}")
+    print(f"  {GRAY}Mode:  {R} " + (f"{mod['color']}{mod['icon']} {mod['label']}{R}  {DGRAY}{mod['desc']}{R}" if m else f"{GRAY}Off{R}"))
     print()
 
 def cmd_off():
-    state = load_state()
-    save_state(state.get("device", 0), 0)
+    s = load_state()
+    save_state(s.get("device", 0), 0)
     subprocess.run(["easyeffects", "--bypass", "1"], capture_output=True)
     print(f"\n  {GREEN}OK{R}  All effects turned off\n")
 
