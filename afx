@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-audiofx  —  Omarchy Audio FX  TUI
+afx  —  Omarchy Audio FX  TUI
 Persistent sound mode + device selector for the terminal.
 
 State survives terminal close — re-run to see current mode and switch.
-Usage:  audiofx            (interactive TUI)
-        audiofx --status   (print current state and exit)
-        audiofx --off      (turn off all effects and exit)
+Usage:  afx            (interactive TUI)
+        afx --status   (print current state and exit)
+        afx --off      (turn off all effects and exit)
 """
 
 import json
@@ -22,7 +22,7 @@ import time
 PRESET_DIR   = os.path.expanduser("~/.local/share/easyeffects/output")
 PLUGIN_DIR   = os.path.expanduser("~/.config/omarchy/plugins/pr4xh4r.audio")
 APPLY_SCRIPT = os.path.join(PLUGIN_DIR, "apply-audio.py")
-STATE_FILE   = os.path.expanduser("~/.local/share/audiofx/state.json")
+STATE_FILE   = os.path.expanduser("~/.local/share/afx/state.json")
 
 # ── ANSI Colors ───────────────────────────────────────────────────────────────
 R   = "\033[0m"
@@ -258,7 +258,7 @@ def run_tui():
         print(f"\n  {PURPLE}{BLD}AudioFX{R}  {GRAY}effects running in background{R}")
         print(f"  {GRAY}Device :{R} {dev['color']}{dev['icon']} {dev['label']}{R}")
         print(f"  {GRAY}Mode   :{R} {(mod['color']+mod['icon']+' '+mod['label']+R) if mod['id'] else GRAY+'Off'+R}")
-        print(f"\n  {DGRAY}Run {WHITE}audiofx{DGRAY} again to change  ·  {WHITE}audiofx --off{DGRAY} to disable{R}\n")
+        print(f"\n  {DGRAY}Run {WHITE}afx{DGRAY} again to change  ·  {WHITE}afx --off{DGRAY} to disable{R}\n")
 
 # ── CLI flags ─────────────────────────────────────────────────────────────────
 def cmd_status():
