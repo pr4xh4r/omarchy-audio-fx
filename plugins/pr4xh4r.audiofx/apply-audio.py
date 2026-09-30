@@ -36,7 +36,9 @@ def load_preset(name: str) -> dict | None:
 
 def ee(*args):
     subprocess.run(["easyeffects"] + list(args),
-                   capture_output=True)
+                   stdout=subprocess.DEVNULL,
+                   stderr=subprocess.DEVNULL,
+                   start_new_session=True)
 
 
 def apply_single(preset_name: str):

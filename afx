@@ -65,16 +65,26 @@ def save_state(device, mode):
 
 # ── Audio ─────────────────────────────────────────────────────────────────────
 def apply_audio(dev_preset, mode_preset):
-    """Fire-and-forget — returns instantly, audio loads in background."""
+    """Fire-and-forget — fully detached from terminal (immune to SIGHUP)."""
+    # Ensure EasyEffects service is running
+    subprocess.Popen(
+        ["systemctl", "--user", "start", "easyeffects.service"],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        start_new_session=True
+    )
     if not dev_preset and not mode_preset:
-        subprocess.Popen(["easyeffects", "--bypass", "1"],
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.Popen(
+            ["easyeffects", "--bypass", "1"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True
+        )
     else:
         subprocess.Popen(
             ["python3", APPLY_SCRIPT,
              dev_preset  if dev_preset  else '""',
              mode_preset if mode_preset else '""'],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True   # new session = immune to terminal SIGHUP
         )
 
 # ── Colors ────────────────────────────────────────────────────────────────────
