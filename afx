@@ -231,6 +231,7 @@ def run_tui():
         setup_colors()
         curses.curs_set(0)
         stdscr.keypad(True)
+        curses.mousemask(curses.ALL_MOUSE_EVENTS | curses.REPORT_MOUSE_POSITION)
 
         state  = load_state()
         device = state.get("device", 0)
@@ -279,6 +280,16 @@ def run_tui():
                 save_state(device, 0)
                 status = "Effects off"
                 apply_audio(DEVICES[device][2], "")
+
+            elif key == curses.KEY_MOUSE:
+                try:
+                    _, _, _, _, bstate = curses.getmouse()
+                    if bstate & curses.BUTTON4_PRESSED:   # scroll up
+                        cur = (cur - 1) % len(nav)
+                    elif bstate & curses.BUTTON5_PRESSED: # scroll down
+                        cur = (cur + 1) % len(nav)
+                except curses.error:
+                    pass
 
             elif key == curses.KEY_RESIZE:
                 stdscr.clear()
